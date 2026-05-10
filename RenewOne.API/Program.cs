@@ -1,7 +1,17 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using RenewOne.Application.Interfaces.LogicService.Accounts;
+using RenewOne.Application.Interfaces.LogicService.Auth;
+using RenewOne.Application.Interfaces.Repositories.Accounts;
+using RenewOne.Application.Interfaces.Repositories.Users;
+using RenewOne.Application.Interfaces.Services.Jwt;
+using RenewOne.Application.LogicService.Accounts;
+using RenewOne.Application.LogicService.Auth;
+using RenewOne.Infrastructure.Services.Jwt;
 using RenewOne.Persistence;
+using RenewOne.Persistence.Repositories.Accounts;
+using RenewOne.Persistence.Repositories.Users;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +37,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddScoped<IAuthLogicService, AuthLogicService>();
+builder.Services.AddScoped<IAccountLogicService,AccountLogicService>();
+
+builder.Services.AddScoped<IJwtService,JwtService>();
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
