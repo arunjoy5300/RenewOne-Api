@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RenewOne.Application\RenewOne.Application.csproj" />
+    <ProjectReference Include="..\RenewOne.Domain\RenewOne.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

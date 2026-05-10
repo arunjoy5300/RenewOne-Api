@@ -10,4 +10,15 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RenewOne.Application\RenewOne.Application.csproj" />
+    <ProjectReference Include="..\RenewOne.Domain\RenewOne.Domain.csproj" />
+    <ProjectReference Include="..\RenewOne.Infrastructure\RenewOne.Infrastructure.csproj" />
+    <ProjectReference Include="..\RenewOne.Persistence\RenewOne.Persistence.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Controllers\" />
+  </ItemGroup>
+
 </Project>

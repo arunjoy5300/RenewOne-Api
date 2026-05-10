@@ -1,2 +1,7 @@
 <Solution>
+  <Project Path="RenewOne.API/RenewOne.API.csproj" Id="7de6458d-f384-41e4-bf75-ab4106f1e72c" />
+  <Project Path="RenewOne.Application/RenewOne.Application.csproj" Id="8587c927-7715-4f30-ad4a-08e1dfaed7d9" />
+  <Project Path="RenewOne.Domain/RenewOne.Domain.csproj" Id="38937516-33f3-4e6d-ad1e-8b1fd06ec4f5" />
+  <Project Path="RenewOne.Infrastructure/RenewOne.Infrastructure.csproj" Id="c98380f6-54ef-4c82-9287-99faf432c492" />
+  <Project Path="RenewOne.Persistence/RenewOne.Persistence.csproj" Id="22e8172f-a4c1-4081-a3e5-7d6778e57552" />
 </Solution>
