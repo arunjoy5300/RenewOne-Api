@@ -11,4 +11,8 @@
     <ProjectReference Include="..\RenewOne.Persistence\RenewOne.Persistence.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Services\" />
+  </ItemGroup>
+
 </Project>
