@@ -94,6 +94,32 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AgentClasses");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("550e8400-e29b-41d4-a716-446655440000"),
+                            ClassName = "Premium",
+                            CommSharePercentage = 15m,
+                            CreatedAt = new DateTime(2026, 5, 12, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            Id = new Guid("550e8400-e29b-41d4-a716-446655440001"),
+                            ClassName = "Standard",
+                            CommSharePercentage = 10m,
+                            CreatedAt = new DateTime(2026, 5, 12, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            Id = new Guid("550e8400-e29b-41d4-a716-446655440002"),
+                            ClassName = "Basic",
+                            CommSharePercentage = 5m,
+                            CreatedAt = new DateTime(2026, 5, 12, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            IsActive = true
+                        });
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.AssignmentHistory", b =>
