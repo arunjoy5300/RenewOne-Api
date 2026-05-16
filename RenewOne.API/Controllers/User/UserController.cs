@@ -7,7 +7,6 @@ namespace RenewOne.API.Controllers.User
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Agent")]
     public class UserController : ControllerBase
     {
         private Guid CurrentUserAccountId => Guid.Parse(User.FindFirst("AccountId")?.Value ?? Guid.Empty.ToString());
@@ -34,6 +33,13 @@ namespace RenewOne.API.Controllers.User
         public async Task<IActionResult> ToggleStatus(Guid id)
         {
             var result = await _userLogicService.ToggleStaffStatusAsync(id, CurrentUserAccountId);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpPost("create-internal-user")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> CreateInternalUser([FromBody] CreateInternalUserRequest request)
+        {
+            var result = await _userLogicService.CreateInternalUserAsync(request);
             return StatusCode(result.StatusCode, result);
         }
     }
