@@ -37,5 +37,27 @@ namespace RenewOne.Persistence.Repositories.Accounts
         {
             return await _context.Accounts.FindAsync(id);
         }
+
+        public async Task<IEnumerable<Account>> GetPendingAgentsWithFilterAsync(string filterType, DateTime? customDate)
+        {
+            var query = _context.Accounts
+                .Include(a => a.AgentClass)
+                .Where(a => a.IsActive == false)
+                .AsQueryable();
+
+            var today = DateTime.Today;
+
+            query = filterType.ToLower() switch
+            {
+                "today" => query.Where(a => a.CreatedAt >= today),
+                "yesterday" => query.Where(a => a.CreatedAt >= today.AddDays(-1) && a.CreatedAt < today),
+                "custom" when customDate.HasValue => query.Where(a => a.CreatedAt.Date == customDate.Value.Date),
+                _ => query
+            };
+
+            return await query
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync();
+        }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.Account;
+using RenewOne.Application.DTOs.Response.Account;
+using RenewOne.Application.Filters.Account;
 
 namespace RenewOne.Application.Interfaces.LogicService.Accounts
 {
@@ -7,5 +9,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Accounts
     {
         Task<Result<bool>> RegisterAgentAsync(AgentSignupRequest request);
         Task<Result<bool>> ApproveAgentAsync(Guid accountId);
+        Task<Result<IEnumerable<PendingAgentResponse>>> GetPendingAgentsAsync(PendingAgentFilterRequest filter);
     }
 }
