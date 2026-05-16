@@ -110,6 +110,33 @@ namespace RenewOne.Persistence
                 .WithMany(ac => ac.Accounts)
                 .HasForeignKey(a => a.AgentClassId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // ഒരു ഫിക്സഡ് ഡേറ്റ് ക്രിയേറ്റ് ചെയ്യുക
+            var seedDate = new DateTime(2026, 05, 12);
+
+            modelBuilder.Entity<AgentClass>().HasData(
+                new AgentClass
+                {
+                    Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440000"),
+                    ClassName = "Premium",
+                    CommSharePercentage = 15,
+                    CreatedAt = seedDate // DateTime.Now മാറ്റുക
+                },
+                new AgentClass
+                {
+                    Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440001"),
+                    ClassName = "Standard",
+                    CommSharePercentage = 10,
+                    CreatedAt = seedDate
+                },
+                new AgentClass
+                {
+                    Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440002"),
+                    ClassName = "Basic",
+                    CommSharePercentage = 5,
+                    CreatedAt = seedDate
+                }
+            );
         }
     }
 }
