@@ -13,8 +13,8 @@ namespace RenewOne.API.Controllers.Auth
         {
             _authLogicService = authLogicService;
         }
-        [HttpGet("login")]
-        public async Task<IActionResult> Login(LoginRequest loginRequest)
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
         {
             var result = await _authLogicService.LoginAsync(loginRequest);
             return StatusCode(result.StatusCode, result);

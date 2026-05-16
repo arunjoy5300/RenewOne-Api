@@ -17,11 +17,28 @@ namespace RenewOne.Persistence.Repositories.Users
         public async Task<User?> GetByLoginIdentifierAsync(string identifier)
         {
             return await _context.Users
-                .FirstOrDefaultAsync(u => (u.UserName == identifier || u.Email == identifier) && u.IsActive);
+                .FirstOrDefaultAsync(u => (u.UserName == identifier || u.Email == identifier));
+        }
+        public async Task<IEnumerable<User>> GetAgentStaffByAccountAsync(Guid accountId)
+        {
+            return await _context.Users
+                .Where(u => u.AccountId == accountId && u.UserType == "Staff")
+                .OrderByDescending(u => u.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<User?> GetByIdAsync(Guid id)
+        {
+            return await _context.Users.FindAsync(id);
         }
         public async Task AddUserAsync(User user)
         {
             await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
+        }
+        public async Task UpdateUserAsync(User user)
+        {
+            _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
     }

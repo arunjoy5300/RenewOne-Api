@@ -6,5 +6,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Accounts
     public interface IAccountLogicService
     {
         Task<Result<bool>> RegisterAgentAsync(AgentSignupRequest request);
+        Task<Result<bool>> ApproveAgentAsync(Guid accountId);
     }
 }

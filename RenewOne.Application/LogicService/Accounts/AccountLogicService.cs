@@ -16,6 +16,17 @@ namespace RenewOne.Application.LogicService.Accounts
             _userRepository = userRepository;
             _accountRepository = accountRepository;
         }
+
+        public async Task<Result<bool>> ApproveAgentAsync(Guid accountId)
+        {
+            var result = await _accountRepository.ApproveAgentAsync(accountId);
+
+            if (!result) 
+                return Result<bool>.NotFound("Account not found");
+
+            return Result<bool>.Success(true, "Agent approved successfully");
+        }
+
         public async Task<Result<bool>> RegisterAgentAsync(AgentSignupRequest request)
         {
             var existingUser = await _userRepository.GetByUserNameAsync(request.UserName);
@@ -53,7 +64,7 @@ namespace RenewOne.Application.LogicService.Accounts
 
             await _accountRepository.AddAccountAsync(newAccount);
             await _userRepository.AddUserAsync(newAgent);
-            return Result<bool>.Success(true);
+            return Result<bool>.Success(true, "Agent registered successfully", 201);
         }
     }
 }

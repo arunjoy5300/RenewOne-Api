@@ -22,6 +22,8 @@ namespace RenewOne.Application.LogicService.Auth
 
             if (user == null) return Result<LoginResponse>.NotFound("User not found");
 
+            if (user.IsActive == false) return Result<LoginResponse>.NotFound("Account is inactive");
+
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return Result<LoginResponse>.Unauthorized("Invalid password");
 
