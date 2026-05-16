@@ -14,6 +14,43 @@ namespace RenewOne.Application.LogicService.Users
         {
             _userRepository = userRepository;
         }
+
+        public async Task<Result<bool>> CreateInternalUserAsync(CreateInternalUserRequest request)
+        {
+            // 1. Is valid role
+            var validTypes = new[] { "SuperAdmin", "Supervisor", "AdminEmployee" };
+            if (!validTypes.Contains(request.UserType))
+            {
+                return Result<bool>.Failure("Invalid user type", 400);
+            }
+
+            // 2. Check for username/email duplication
+            if (await _userRepository.GetByUserNameAsync(request.UserName) != null)
+                return Result<bool>.Conflict("Username already exists");
+
+            if (await _userRepository.GetByLoginIdentifierAsync(request.Email) != null)
+                return Result<bool>.Conflict("Email already exists");
+
+            var internalUser = new User
+            {
+                Id = Guid.NewGuid(),
+                AccountId = null, // Internal staff do not have an account (NULL)
+                UserName = request.UserName,
+                FullName = request.FullName,
+                Email = request.Email,
+                PhoneNumber = request.PhoneNumber,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                UserType = request.UserType, // SuperAdmin, Supervisor, AdminEmployee
+                IsActive = true, // Directly active
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+
+            await _userRepository.AddUserAsync(internalUser);
+
+            return Result<bool>.Success(true, $"{request.UserType} account created successfully.", 201);
+        }
+
         public async Task<Result<bool>> CreateStaffAsync(CreateStaffRequest request, Guid accountId)
         {
             if (await _userRepository.GetByUserNameAsync(request.UserName) != null)

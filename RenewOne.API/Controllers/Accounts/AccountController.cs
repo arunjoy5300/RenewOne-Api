@@ -21,14 +21,14 @@ namespace RenewOne.API.Controllers.Accounts
             var result = await _accountLogicService.RegisterAgentAsync(signupRequest);
             return StatusCode(result.StatusCode, result);
         }
-        [Authorize(Roles = "Admin,AdminEmployee")]
+        [Authorize(Roles = "SuperAdmin,AdminEmployee")]
         [HttpPost("approve-agent/{accountId}")]
         public async Task<IActionResult> ApproveAgent([FromRoute] Guid accountId)
         {
             var result = await _accountLogicService.ApproveAgentAsync(accountId);
             return StatusCode(result.StatusCode, result);
         }
-        [Authorize(Roles = "Admin,AdminEmployee")]
+        [Authorize(Roles = "SuperAdmin,AdminEmployee")]
         [HttpGet("pending-agents")]
         public async Task<IActionResult> GetPendingAgents([FromQuery] PendingAgentFilterRequest filter)
         {

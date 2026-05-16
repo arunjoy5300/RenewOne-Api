@@ -412,7 +412,7 @@ namespace RenewOne.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("AccountId")
+                    b.Property<Guid?>("AccountId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
@@ -642,9 +642,7 @@ namespace RenewOne.Persistence.Migrations
                 {
                     b.HasOne("RenewOne.Domain.Entities.Account", "Account")
                         .WithMany("Users")
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("AccountId");
 
                     b.Navigation("Account");
                 });
