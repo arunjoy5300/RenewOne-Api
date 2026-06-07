@@ -8,5 +8,6 @@ namespace RenewOne.Application.Interfaces.Repositories.Accounts
         Task AddAccountAsync(Account account);
         Task<bool> ApproveAgentAsync(Guid id);
         Task<IEnumerable<Account>> GetPendingAgentsWithFilterAsync(string filterType, DateTime? customDate);
+        IQueryable<Account> GetQueryable();
     }
 }

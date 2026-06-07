@@ -20,5 +20,10 @@ namespace RenewOne.Persistence.Repositories.Class
         {
             return await _dbContext.AgentClasses.FirstOrDefaultAsync(x => x.Id == id);
         }
+        public IQueryable<AgentClass> GetQueryable()
+        {
+            return _dbContext.AgentClasses.AsQueryable();
+        }
+
     }
 }

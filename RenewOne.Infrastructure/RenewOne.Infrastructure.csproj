@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="EntityFramework" Version="6.5.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RenewOne.Application\RenewOne.Application.csproj" />
     <ProjectReference Include="..\RenewOne.Persistence\RenewOne.Persistence.csproj" />
   </ItemGroup>

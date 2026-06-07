@@ -59,5 +59,10 @@ namespace RenewOne.Persistence.Repositories.Accounts
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
+
+        public IQueryable<Account> GetQueryable()
+        {
+            return _context.Accounts.AsQueryable();
+        }
     }
 }
