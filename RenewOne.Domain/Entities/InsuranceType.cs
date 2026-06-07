@@ -8,6 +8,5 @@ namespace RenewOne.Domain.Entities
         public int DisplayOrder { get; set; }
         public bool IsActive { get; set; } = true;
         public virtual ICollection<Enquiry> Enquiries { get; set; } = new HashSet<Enquiry>();
-        public virtual ICollection<PricingMaster> PricingMasters { get; set; } = new HashSet<PricingMaster>();
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RenewOne.Application.DTOs.Request.Account;
 using RenewOne.Application.Interfaces.LogicService.Accounts;
 
@@ -20,6 +21,7 @@ namespace RenewOne.API.Controllers.Accounts
             return StatusCode(result.StatusCode, result);
         }
         [HttpPost("approve-agent/{accountId}")]
+        [Authorize(Roles = "SuperAdmin,AdminStaff")]
         public async Task<IActionResult> ApproveAgent([FromRoute] Guid accountId)
         {
             var result = await _accountLogicService.ApproveAgentAsync(accountId);

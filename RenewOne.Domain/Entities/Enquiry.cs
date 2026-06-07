@@ -11,7 +11,7 @@ namespace RenewOne.Domain.Entities
         public Guid CreatedByUserId { get; set; }
         public Guid? AssignedEmployeeId { get; set; }
         public int Priority { get; set; }
-        public int Status { get; set; }
+        public string Status { get; set; }
         public virtual Account? Tenant { get; set; }
         public virtual InsuranceType? InsuranceType { get; set; }
         public virtual EnquiryPricing? Pricing { get; set; }
