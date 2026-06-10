@@ -2,6 +2,7 @@
 using RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry;
 using RenewOne.Application.DTOs.Response.RC;
 using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
+using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.Services.RC;
 using RenewOne.Domain.Entities;
@@ -12,15 +13,32 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
     public class VehicleEnquiryLogicService : IVehicleEnquiryLogicService
     {
         private readonly IVehicleEnquiryRepository _vehicleEnquiryRepository;
+        private readonly IEnquiryRepository _enquiryRepository;
         private readonly IRCService _rcApiService;
-        public VehicleEnquiryLogicService(IVehicleEnquiryRepository vehicleEnquiryRepository, IRCService rcApiService)
+        public VehicleEnquiryLogicService(
+            IVehicleEnquiryRepository vehicleEnquiryRepository, 
+            IRCService rcApiService,
+            IEnquiryRepository enquiryRepository)
         {
             _vehicleEnquiryRepository = vehicleEnquiryRepository;
             _rcApiService = rcApiService;
+            _enquiryRepository = enquiryRepository;
         }
         public async Task<Result<bool>> CreateVehicleEnquiryAsync(CreateVehicleEnquiry request, Guid tenantId, Guid userId)
         {
             var formattedNumber = request.VehicleNumber.ToUpper().Replace(" ", "");
+
+            var existingEnquiry = _enquiryRepository.GetEnquiries().Any(x =>
+                x.VehicleEnquiryDetails != null &&
+                x.VehicleEnquiryDetails.VehicleDetails != null &&
+                x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber == formattedNumber &&
+                x.Status != "Completed" &&
+                x.CreatedAt >= DateTime.UtcNow.AddDays(-180));
+
+            if(existingEnquiry)
+            {
+                return Result<bool>.Conflict("An enquiry for this vehicle already exists.");
+            }
 
             var enquiry = new Domain.Entities.Enquiry
             {
@@ -43,20 +61,11 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
             if (vehicle == null)
             {
-                var rcApiJsonString = await _rcApiService.FetchVehicleDetailsAsync(formattedNumber);
+                var rcApiResponse = await _rcApiService.FetchVehicleDetailsAsync(formattedNumber);
 
-                if (string.IsNullOrWhiteSpace(rcApiJsonString))
+                if (rcApiResponse == null)
                 {
-                    return Result<bool>.Failure("API വഴി വണ്ടിയുടെ വിവരങ്ങൾ എടുക്കാൻ സാധിച്ചില്ല. ദയവായി മാനുവൽ എൻട്രി ഉപയോഗിക്കുക.", 400);
-                }
-
-                rawApiResponseString = rcApiJsonString;
-
-                var apiData = JsonSerializer.Deserialize<RcApiDto>(rcApiJsonString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                if (apiData == null)
-                {
-                    return Result<bool>.Failure("API ഡാറ്റ വായിക്കാൻ സാധിച്ചില്ല.", 400);
+                    return Result<bool>.Failure("Unable to fetch vehicle details from RC API.Please try submitting manually", 400);
                 }
 
                 vehicle = new VehicleDetails
@@ -64,11 +73,11 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     Id = Guid.NewGuid(),
                     VehicleNumber = formattedNumber,
                     VehicleTypeId = request.VehicleTypeId,
-                    ChassisNumber = apiData.ChassisNumber,
-                    EngineNumber = apiData.EngineNumber,
-                    MakerModel = apiData.MakerModel,
-                    FuelType = apiData.FuelType,
-                    CubicCapacity = apiData.CubicCapacity,
+                    ChassisNumber = rcApiResponse.ChassisNumber,
+                    EngineNumber = rcApiResponse.EngineNumber,
+                    MakerModel = rcApiResponse.MakerModel,
+                    FuelType = rcApiResponse.FuelType,
+                    CubicCapacity = rcApiResponse.CubicCapacity,
                     CreatedAt = DateTime.UtcNow,
                     RawApiResponse = rawApiResponseString
                 };
@@ -92,10 +101,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             var success = await _vehicleEnquiryRepository.SaveChangesAsync();
 
             if (!success)
-                return Result<bool>.Failure("എൻക്വയറി സേവ് ചെയ്യാൻ സാധിച്ചില്ല.", 500);
+                return Result<bool>.Failure("Failed to create vehicle enquiry.", 500);
 
-            return Result<bool>.Success(true, "വെഹിക്കിൾ എൻക്വയറി വിജയകരമായി രജിസ്റ്റർ ചെയ്തു.", 201);
-
+            return Result<bool>.Success(true, "Vehicle enquiry successfully registered.", 201);
         }
     }
 }
