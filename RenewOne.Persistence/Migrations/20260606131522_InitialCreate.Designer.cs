@@ -12,8 +12,8 @@ using RenewOne.Persistence;
 namespace RenewOne.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260512165210_SeedAgentClassesStatic")]
-    partial class SeedAgentClassesStatic
+    [Migration("20260606131522_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -104,7 +104,7 @@ namespace RenewOne.Persistence.Migrations
                             Id = new Guid("550e8400-e29b-41d4-a716-446655440000"),
                             ClassName = "Premium",
                             CommSharePercentage = 15m,
-                            CreatedAt = new DateTime(2026, 5, 12, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         },
                         new
@@ -112,7 +112,7 @@ namespace RenewOne.Persistence.Migrations
                             Id = new Guid("550e8400-e29b-41d4-a716-446655440001"),
                             ClassName = "Standard",
                             CommSharePercentage = 10m,
-                            CreatedAt = new DateTime(2026, 5, 12, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         },
                         new
@@ -120,7 +120,7 @@ namespace RenewOne.Persistence.Migrations
                             Id = new Guid("550e8400-e29b-41d4-a716-446655440002"),
                             ClassName = "Basic",
                             CommSharePercentage = 5m,
-                            CreatedAt = new DateTime(2026, 5, 12, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         });
                 });
@@ -233,8 +233,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<int>("Priority")
                         .HasColumnType("int");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -292,6 +293,30 @@ namespace RenewOne.Persistence.Migrations
                     b.ToTable("EnquiryPricings");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceCompany", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InsuranceCompanies");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -317,6 +342,32 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("InsuranceTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("a1111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 1,
+                            IsActive = true,
+                            Name = "Vehicle Insurance"
+                        },
+                        new
+                        {
+                            Id = new Guid("a2222222-2222-2222-2222-222222222222"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 2,
+                            IsActive = true,
+                            Name = "Health Insurance"
+                        },
+                        new
+                        {
+                            Id = new Guid("a3333333-3333-3333-3333-333333333333"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayOrder = 3,
+                            IsActive = true,
+                            Name = "Life Insurance"
+                        });
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.LoginHistory", b =>
@@ -376,7 +427,10 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("InsuranceTypeId")
+                    b.Property<Guid>("InsuranceCompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("InsuranceTypeId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("IsActive")
@@ -402,11 +456,13 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("AgentClassId");
 
+                    b.HasIndex("InsuranceCompanyId");
+
                     b.HasIndex("InsuranceTypeId");
 
                     b.HasIndex("VehicleTypeId");
 
-                    b.ToTable("PricingMasters");
+                    b.ToTable("PricingMasters", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.User", b =>
@@ -415,7 +471,7 @@ namespace RenewOne.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("AccountId")
+                    b.Property<Guid?>("AccountId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
@@ -458,6 +514,55 @@ namespace RenewOne.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.VehicleDetails", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChassisNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CubicCapacity")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EngineNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FuelType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MakerModel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RawApiResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VehicleNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("VehicleTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VehicleTypeId");
+
+                    b.ToTable("VehicleDetails");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleEnquiryDetails", b =>
                 {
                     b.Property<Guid>("Id")
@@ -470,19 +575,39 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("EnquiryId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("HasPreviousClaim")
+                        .HasColumnType("bit");
+
                     b.Property<string>("IdvValue")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsApiFetchedData")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRcOwnerChanged")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MIPolicyType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("NcbPercentage")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("VehicleTypeId")
+                    b.Property<Guid>("VehicleDetailsId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("VehicleTypeId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
                     b.HasIndex("EnquiryId")
                         .IsUnique();
+
+                    b.HasIndex("VehicleDetailsId");
 
                     b.HasIndex("VehicleTypeId");
 
@@ -514,6 +639,64 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("VehicleTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Motorcycles and Scooters",
+                            IsActive = true,
+                            TypeName = "Two Wheeler"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Private Four Wheeler",
+                            IsActive = true,
+                            TypeName = "Car - Private"
+                        },
+                        new
+                        {
+                            Id = new Guid("33333333-3333-3333-3333-333333333333"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Commercial Four Wheeler (Taxi)",
+                            IsActive = true,
+                            TypeName = "Car - Taxi"
+                        },
+                        new
+                        {
+                            Id = new Guid("44444444-4444-4444-4444-444444444444"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Private Three Wheeler",
+                            IsActive = true,
+                            TypeName = "Auto - Private"
+                        },
+                        new
+                        {
+                            Id = new Guid("55555555-5555-5555-5555-555555555555"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Commercial Three Wheeler (Passenger)",
+                            IsActive = true,
+                            TypeName = "Auto - Taxi"
+                        },
+                        new
+                        {
+                            Id = new Guid("66666666-6666-6666-6666-666666666666"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Commercial Three Wheeler (Goods)",
+                            IsActive = true,
+                            TypeName = "Auto - Goods"
+                        },
+                        new
+                        {
+                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
+                            CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Buses and Lorries",
+                            IsActive = true,
+                            TypeName = "Commercial Heavy"
+                        });
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Account", b =>
@@ -622,11 +805,15 @@ namespace RenewOne.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("RenewOne.Domain.Entities.InsuranceType", "InsuranceType")
+                    b.HasOne("RenewOne.Domain.Entities.InsuranceCompany", "InsuranceCompany")
                         .WithMany("PricingMasters")
-                        .HasForeignKey("InsuranceTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("InsuranceCompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.InsuranceType", null)
+                        .WithMany("PricingMasters")
+                        .HasForeignKey("InsuranceTypeId");
 
                     b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
                         .WithMany("PricingMasters")
@@ -636,7 +823,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.Navigation("AgentClass");
 
-                    b.Navigation("InsuranceType");
+                    b.Navigation("InsuranceCompany");
 
                     b.Navigation("VehicleType");
                 });
@@ -645,11 +832,20 @@ namespace RenewOne.Persistence.Migrations
                 {
                     b.HasOne("RenewOne.Domain.Entities.Account", "Account")
                         .WithMany("Users")
-                        .HasForeignKey("AccountId")
+                        .HasForeignKey("AccountId");
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.VehicleDetails", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
+                        .WithMany("Vehicles")
+                        .HasForeignKey("VehicleTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Account");
+                    b.Navigation("VehicleType");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleEnquiryDetails", b =>
@@ -660,15 +856,19 @@ namespace RenewOne.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
+                    b.HasOne("RenewOne.Domain.Entities.VehicleDetails", "VehicleDetails")
                         .WithMany("EnquiryDetails")
-                        .HasForeignKey("VehicleTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("VehicleDetailsId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.VehicleType", null)
+                        .WithMany("EnquiryDetails")
+                        .HasForeignKey("VehicleTypeId");
 
                     b.Navigation("Enquiry");
 
-                    b.Navigation("VehicleType");
+                    b.Navigation("VehicleDetails");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Account", b =>
@@ -696,6 +896,11 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("VehicleDetails");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceCompany", b =>
+                {
+                    b.Navigation("PricingMasters");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceType", b =>
                 {
                     b.Navigation("Enquiries");
@@ -708,11 +913,18 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("LoginHistories");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.VehicleDetails", b =>
+                {
+                    b.Navigation("EnquiryDetails");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleType", b =>
                 {
                     b.Navigation("EnquiryDetails");
 
                     b.Navigation("PricingMasters");
+
+                    b.Navigation("Vehicles");
                 });
 #pragma warning restore 612, 618
         }

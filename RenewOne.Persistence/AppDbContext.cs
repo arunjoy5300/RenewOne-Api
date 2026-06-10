@@ -27,6 +27,8 @@ namespace RenewOne.Persistence
         public DbSet<VehicleEnquiryDetails> VehicleEnquiryDetails { get; set; }
         public DbSet<Document> Documents { get; set; }
         public DbSet<AssignmentHistory> AssignmentHistories { get; set; }
+        public DbSet<VehicleDetails> VehicleDetails { get; set; }
+        public DbSet<InsuranceCompany> InsuranceCompanies { get; set; }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -40,11 +42,11 @@ namespace RenewOne.Persistence
 
                 if (entityEntry.State == EntityState.Added)
                 {
-                    entity.CreatedAt = DateTime.Now;
+                    entity.CreatedAt = DateTime.UtcNow;
                 }
                 else
                 {
-                    entity.UpdatedAt = DateTime.Now;
+                    entity.UpdatedAt = DateTime.UtcNow;
                 }
             }
 
@@ -54,6 +56,12 @@ namespace RenewOne.Persistence
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<PricingMaster>(entity =>
+            {
+                entity.ToTable("PricingMasters"); // ടേബിൾ നെയിം ഉറപ്പിക്കുക
+                entity.Property(p => p.Id).IsRequired();
+            });
 
             modelBuilder.Entity<Account>()
                 .HasOne(a => a.AgentClass)
@@ -80,6 +88,12 @@ namespace RenewOne.Persistence
                 .Property(ep => ep.CompanyPayable).HasPrecision(18, 2);
             modelBuilder.Entity<EnquiryPricing>()
                 .Property(ep => ep.AdminProfit).HasPrecision(18, 2);
+
+            modelBuilder.Entity<VehicleEnquiryDetails>()
+                .HasOne(v => v.VehicleDetails)
+                .WithMany(vd => vd.EnquiryDetails)
+                .HasForeignKey(v => v.VehicleDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<AssignmentHistory>(entity =>
             {
@@ -111,8 +125,17 @@ namespace RenewOne.Persistence
                 .HasForeignKey(a => a.AgentClassId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // PricingMaster-ലേക്ക് പുതിയ InsuranceCompany ബന്ധം ചേർക്കുക
+            modelBuilder.Entity<PricingMaster>()
+                .HasOne(p => p.InsuranceCompany)
+                .WithMany(i => i.PricingMasters)
+                .HasForeignKey(p => p.InsuranceCompanyId)
+                .OnDelete(DeleteBehavior.Restrict); // അബദ്ധത്തിൽ കമ്പനി ഡിലീറ്റ് ആകാതിരിക്കാൻ
+
             // ഒരു ഫിക്സഡ് ഡേറ്റ് ക്രിയേറ്റ് ചെയ്യുക
-            var seedDate = new DateTime(2026, 05, 12);
+            //var seedDate = new DateTime(2026, 05, 12);
+            var seedDate = new DateTime(2026, 6, 6, 0, 0, 0, DateTimeKind.Utc);
+
 
             modelBuilder.Entity<AgentClass>().HasData(
                 new AgentClass
@@ -134,6 +157,54 @@ namespace RenewOne.Persistence
                     Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440002"),
                     ClassName = "Basic",
                     CommSharePercentage = 5,
+                    CreatedAt = seedDate
+                }
+            );
+
+
+            modelBuilder.Entity<VehicleType>().HasData(
+                // 1. ഇരുചക്ര വാഹനങ്ങൾ
+                new VehicleType { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), TypeName = "Two Wheeler", Description = "Motorcycles and Scooters", IsActive = true, CreatedAt = seedDate },
+
+                // 2. കാറുകൾ
+                new VehicleType { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), TypeName = "Car - Private", Description = "Private Four Wheeler", IsActive = true, CreatedAt = seedDate },
+                new VehicleType { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), TypeName = "Car - Taxi", Description = "Commercial Four Wheeler (Taxi)", IsActive = true, CreatedAt = seedDate },
+
+                // 3. ഓട്ടോറിക്ഷകൾ (ത്രീ വീലർ)
+                new VehicleType { Id = Guid.Parse("44444444-4444-4444-4444-444444444444"), TypeName = "Auto - Private", Description = "Private Three Wheeler", IsActive = true, CreatedAt = seedDate },
+                new VehicleType { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), TypeName = "Auto - Taxi", Description = "Commercial Three Wheeler (Passenger)", IsActive = true, CreatedAt = seedDate },
+                new VehicleType { Id = Guid.Parse("66666666-6666-6666-6666-666666666666"), TypeName = "Auto - Goods", Description = "Commercial Three Wheeler (Goods)", IsActive = true, CreatedAt = seedDate },
+
+                // 4. വലിയ കൊമേഴ്സ്യൽ വാഹനങ്ങൾ (ഭാവിയിലേക്ക്)
+                new VehicleType { Id = Guid.Parse("77777777-7777-7777-7777-777777777777"), TypeName = "Commercial Heavy", Description = "Buses and Lorries", IsActive = true, CreatedAt = seedDate }
+            );
+
+            modelBuilder.Entity<InsuranceType>().HasData(
+                // 1. ഫുൾ കവർ (Comprehensive)
+                new InsuranceType
+                {
+                    Id = Guid.Parse("A1111111-1111-1111-1111-111111111111"),
+                    Name = "Vehicle Insurance",
+                    DisplayOrder = 1,
+                    IsActive = true,
+                    CreatedAt = seedDate
+                },
+                // 2. തേർഡ് പാർട്ടി മാത്രം (Third Party)
+                new InsuranceType
+                {
+                    Id = Guid.Parse("A2222222-2222-2222-2222-222222222222"),
+                    Name = "Health Insurance",
+                    DisplayOrder = 2,
+                    IsActive = true,
+                    CreatedAt = seedDate
+                },
+                // 3. സ്വന്തം വണ്ടിക്ക് മാത്രം (Standalone Own Damage - SAOD)
+                new InsuranceType
+                {
+                    Id = Guid.Parse("A3333333-3333-3333-3333-333333333333"),
+                    Name = "Life Insurance",
+                    DisplayOrder = 3,
+                    IsActive = true,
                     CreatedAt = seedDate
                 }
             );
