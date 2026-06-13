@@ -9,6 +9,5 @@ namespace RenewOne.Domain.Entities
         public bool IsActive { get; set; } = true;
         public virtual ICollection<VehicleEnquiryDetails> EnquiryDetails { get; set; } = new HashSet<VehicleEnquiryDetails>();
         public virtual ICollection<PricingMaster> PricingMasters { get; set; } = new HashSet<PricingMaster>();
-        public virtual ICollection<VehicleDetails> Vehicles { get; set; } = new HashSet<VehicleDetails>();
     }
 }

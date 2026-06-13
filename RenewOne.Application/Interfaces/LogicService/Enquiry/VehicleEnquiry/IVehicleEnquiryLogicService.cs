@@ -5,6 +5,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry
 {
     public interface IVehicleEnquiryLogicService
     {
-        Task<Result<bool>> CreateVehicleEnquiryAsync(CreateVehicleEnquiry request, Guid tenantId, Guid userId);
+        Task<Result<string>> CreateVehicleEnquiryAsync(CreateVehicleEnquiry request, Guid tenantId, Guid userId);
     }
 }

@@ -1,7 +1,9 @@
-﻿namespace RenewOne.Application.Interfaces.Services.RC
+﻿using RenewOne.Application.DTOs.Response.RC;
+
+namespace RenewOne.Application.Interfaces.Services.RC
 {
     public interface IRCService
     {
-        Task<string> FetchVehicleDetailsAsync(string formattedNumber);
+        Task<RcApiDto> FetchVehicleDetailsAsync(string vehicleNumber, CancellationToken cancellationToken = default);
     }
 }

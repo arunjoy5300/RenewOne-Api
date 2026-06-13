@@ -555,12 +555,12 @@ namespace RenewOne.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("InsuranceValidUpto")
+                    b.Property<DateOnly?>("InsuranceValidUpto")
+                        .HasColumnType("date");
+
+                    b.Property<string>("IsCommercial")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsCommercial")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFinanced")
                         .HasColumnType("bit");
@@ -645,24 +645,21 @@ namespace RenewOne.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PuccUpto")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateOnly?>("PuccUpto")
+                        .HasColumnType("date");
 
                     b.Property<string>("RawApiResponse")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("RcExpiryDate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateOnly?>("RcExpiryDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("RegistrationAuthority")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("RegistrationDate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateOnly?>("RegistrationDate")
+                        .HasColumnType("date");
 
                     b.Property<string>("RtoCode")
                         .IsRequired()
@@ -695,20 +692,14 @@ namespace RenewOne.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("VehicleTaxUpto")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("VehicleTypeId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<DateOnly?>("VehicleTaxUpto")
+                        .HasColumnType("date");
 
                     b.Property<string>("Wheelbase")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("VehicleTypeId");
 
                     b.ToTable("VehicleDetails");
                 });
@@ -749,7 +740,7 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("VehicleDetailsId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("VehicleTypeId")
+                    b.Property<Guid>("VehicleTypeId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
@@ -983,21 +974,10 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("Account");
                 });
 
-            modelBuilder.Entity("RenewOne.Domain.Entities.VehicleDetails", b =>
-                {
-                    b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
-                        .WithMany("Vehicles")
-                        .HasForeignKey("VehicleTypeId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("VehicleType");
-                });
-
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleEnquiryDetails", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.Enquiry", "Enquiry")
-                        .WithOne("VehicleDetails")
+                        .WithOne("VehicleEnquiryDetails")
                         .HasForeignKey("RenewOne.Domain.Entities.VehicleEnquiryDetails", "EnquiryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1008,13 +988,17 @@ namespace RenewOne.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("RenewOne.Domain.Entities.VehicleType", null)
+                    b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
                         .WithMany("EnquiryDetails")
-                        .HasForeignKey("VehicleTypeId");
+                        .HasForeignKey("VehicleTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Enquiry");
 
                     b.Navigation("VehicleDetails");
+
+                    b.Navigation("VehicleType");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Account", b =>
@@ -1039,7 +1023,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.Navigation("Pricing");
 
-                    b.Navigation("VehicleDetails");
+                    b.Navigation("VehicleEnquiryDetails");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceCompany", b =>
@@ -1067,8 +1051,6 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("EnquiryDetails");
 
                     b.Navigation("PricingMasters");
-
-                    b.Navigation("Vehicles");
                 });
 #pragma warning restore 612, 618
         }
