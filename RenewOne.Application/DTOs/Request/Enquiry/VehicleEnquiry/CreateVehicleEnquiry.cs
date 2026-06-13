@@ -1,4 +1,6 @@
-﻿namespace RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry
+﻿using RenewOne.Domain.Enums;
+
+namespace RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry
 {
     public class CreateVehicleEnquiry
     {
@@ -12,6 +14,6 @@
         public bool HasPreviousClaim { get; set; }
         public int NcbPercentage { get; set; }
         public int Priority { get; set; } = 1;
-        public string SubmissionMode { get; set; }
+        public SubmissionMode SubmissionMode { get; set; }
     }
 }

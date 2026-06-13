@@ -1,93 +1,138 @@
 ﻿using Microsoft.Extensions.Configuration;
-using RenewOne.Application.Common.Models;
-using RenewOne.Application.DTOs.Response.Service;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using RenewOne.Application.Common.Helper;
+using RenewOne.Application.DTOs.Request.RC;
+using RenewOne.Application.DTOs.Response.RC;
 using RenewOne.Application.Interfaces.Services.External.RC;
-using RenewOne.Domain.Entities;
-using System.Text;
+using RenewOne.Application.Interfaces.Services.RC;
+using RenewOne.Infrastructure.Options;
+using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
-namespace RenewOne.Infrastructure.Services.External.RC
+namespace RenewOne.Infrastructure.Services.RC
 {
     public class RCIDSService : IRCIDSService
     {
+        private readonly RcServiceOptions _options;
         private readonly HttpClient _httpClient;
-        private readonly IConfiguration _configuration;
-        public RCIDSService(HttpClient httpClient, IConfiguration configuration)
+        private readonly ILogger<RCService> _logger;
+        public RCIDSService(
+            HttpClient httpClient,
+            IOptions<RcServiceOptions> options,
+            ILogger<RCService> logger)
         {
+            _options = options.Value;
             _httpClient = httpClient;
-            _configuration = configuration;
+            _logger = logger;
         }
-
-        public async Task<Result<VehicleDetails>> GetVehicleDetailsAsync(string regNumber)
+        public async Task<RcApiDto> FetchVehicleDetailsAsync(string vehicleNumber, CancellationToken cancellationToken = default)
         {
-            try
+            var request = new RcValidationRequest
             {
-                var requestBody = new 
-                { 
-                    api_id = _configuration["RcApiSettings:ApiId"], 
-                    api_key = _configuration["RcApiSettings:ApiKey"], 
-                    token_id = _configuration["RcApiSettings:TokenId"], 
-                    reg_no = regNumber 
-                };
+                ApiId = _options.ApiId,
+                ApiKey = _options.ApiKey,
+                TokenId = _options.TokenId,
+                RegNo = vehicleNumber
+            };
 
-                var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            var url =
+                $"{_options.BaseUrl}/srv2/validation/rc";
 
-                var response = await _httpClient.PostAsync("/srv2/validation/rc", jsonContent);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
 
-                var responseString = await response.Content.ReadAsStringAsync();
-                if (!response.IsSuccessStatusCode) 
-                { 
-                    return Result<VehicleDetails>.Failure("Failed to fetch RC details", (int)response.StatusCode);
-                } 
-                
-                // Deserialize JSON -> DTO
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var apiResponse = JsonSerializer.Deserialize<RcValidationResponseDto>( responseString, options);
-                if (apiResponse == null) 
-                { 
-                    return Result<VehicleDetails>.Failure( "Invalid API response"); 
-                } 
+            var response = await _httpClient.PostAsJsonAsync(
+                url,
+                request,
+                cancellationToken: cts.Token);
 
-                // Business Failure
-                if (apiResponse.Status.Code != 200) 
-                { 
-                    return Result<VehicleDetails>.Failure( apiResponse.Message, apiResponse.Status.Code);
-                } 
-                // Manual Mapping DTO -> Entity
-                var vehicle = new VehicleDetails 
-                { 
-                    VehicleNumber = apiResponse.Data.Reg_No, 
-                    VehicleClass = apiResponse.Data.Class,
-                    ChassisNumber = apiResponse.Data.Chassis, 
-                    EngineNumber = apiResponse.Data.Engine,
-                    ManufacturerName = apiResponse.Data.Vehicle_Manufacturer_Name,
-                    Model = apiResponse.Data.Model,
-                    VehicleColor = apiResponse.Data.Vehicle_Colour,
-                    FuelType = apiResponse.Data.Type,
-                    NormsType = apiResponse.Data.Norms_Type,
-                    BodyType = apiResponse.Data.Body_Type,
-                    OwnerName = apiResponse.Data.Owner_Name,
-                    RegistrationAuthority = apiResponse.Data.Reg_Authority,
-                    RegistrationDate = apiResponse.Data.Reg_Date,
-                    RcExpiryDate = apiResponse.Data.Rc_Expiry_Date,
-                    InsuranceCompanyName = apiResponse.Data.Vehicle_Insurance_Company_Name,
-                    InsuranceValidUpto = apiResponse.Data.Vehicle_Insurance_Upto,
-                    CubicCapacity = apiResponse.Data.Vehicle_Cubic_Capacity, 
-                    VehicleCategory = apiResponse.Data.Vehicle_Category,
-                    SeatCapacity = apiResponse.Data.Vehicle_Seat_Capacity,
-                    IsCommercial = apiResponse.Data.Is_Commercial,
-                    RtoCode = apiResponse.Data.Rto_Code,
-                    IsFinanced = apiResponse.Data.Financed,
-                    RawApiResponse = responseString
-                }; 
-                return Result<VehicleDetails>.Success( vehicle, "Vehicle details fetched successfully");
-
-            }
-            catch(Exception ex)
+            if (!response.IsSuccessStatusCode)
             {
-                return Result<VehicleDetails>.Failure("Something went wrong while fetching RC details", 500);
+                var errorContent = await response.Content.ReadAsStringAsync(cts.Token);
+                _logger.LogError(
+                    "RC API call failed with status {StatusCode}: {ErrorContent}",
+                    response.StatusCode,
+                    errorContent);
+                return null;
             }
+
+            var rawJson = await response.Content.ReadAsStringAsync(cts.Token);
+            _logger.LogInformation("RC API response for vehicle number {VehicleNumber} is {Response}", vehicleNumber, rawJson);
+
+            var apiResponse = JsonSerializer.Deserialize<RcApiResponse>(rawJson);
+
+            // Validate API response
+            if (apiResponse?.Data == null)
+            {
+                _logger.LogInformation("RC API response does not contain expected data for vehicle number: {VehicleNumber}", vehicleNumber);
+                return null;
+            }
+
+            if (apiResponse?.Status?.Code != 200)
+            {
+                _logger.LogWarning(
+                    "RC API returned non-success status. Code: {Code}, Type: {Type}, Message: {Message}",
+                    apiResponse?.Status?.Code,
+                    apiResponse?.Status?.Type,
+                    apiResponse?.Status?.Message);
+                return null;
+            }
+
+            var dto = MapResponse(apiResponse, rawJson);
+
+            _logger.LogInformation(
+                "Successfully fetched RC details for vehicle: {VehicleNumber}. Status: {Status}",
+                vehicleNumber,
+                apiResponse?.Status?.Code);
+
+            return dto;
+        }
+        private RcApiDto MapResponse(RcApiResponse response, string rawJson)
+        {
+            if (response?.Data == null)
+            {
+                _logger.LogWarning("Attempted to map RC API response, but Data is null.");
+                return null;
+            }
+
+            return new RcApiDto
+            {
+                VehicleNumber = response.Data.RegNo,
+                VehicleClass = response.Data.Class,
+                OwnerName = response.Data.OwnerName,
+                MobileNumber = response.Data.MobileNumber,
+                Model = response.Data.Model,
+                VehicleColor = response.Data.VehicleColour,
+                FuelType = response.Data.Type,
+                NormsType = response.Data.NormsType,
+                PresentAddress = response.Data.PresentAddress,
+                PermanentAddress = response.Data.PermanentAddress,
+                ChassisNumber = response.Data.Chassis,
+                EngineNumber = response.Data.Engine,
+                ManufacturerName = response.Data.ManufacturerName,
+                RegistrationDate = DateHelper.ParseDateOnly(response.Data.RegistrationDate),
+                InsuranceValidUpto = DateHelper.ParseDateOnly(response.Data.InsuranceValidity),
+                InsuranceCompanyName = response.Data.VehicleInsuranceCompany,
+                InsurancePolicyNumber = response.Data.VehiclePolicyNumber,
+                FinancerName = response.Data.RcFinancer,
+                IsFinanced = response.Data.Financed,
+                VehicleTaxUpto = DateHelper.ParseDateOnly(response.Data.Taxupto),
+                RcExpiryDate = DateHelper.ParseDateOnly(response.Data.RcExpiryDate),
+                PuccNumber = response.Data.PuccNumber,
+                PuccUpto = DateHelper.ParseDateOnly(response.Data.PuccUpto),
+                VehicleCategory = response.Data.VehicleCategory,
+                OwnerCount = response.Data.OwnerCount,
+                OwnerFatherName = response.Data.OwnerFatherName,
+                RegistrationAuthority = response.Data.RegAuthority,
+                ManufacturingMonthYear = response.Data.ManufacturingMonthYear,
+                IsCommercial = response.Data.IsCommercial,
+                GrossVehicleWeight = response.Data.GrossVehicleWeight,
+                CylinderCount = response.Data.VehicleCylinderNumber,
+                SeatCapacity = response.Data.VehicleSeatCapacity,
+                CubicCapacity = response.Data.CubicCapacity,
+                RawApiResponse = rawJson
+            };
         }
     }
 }

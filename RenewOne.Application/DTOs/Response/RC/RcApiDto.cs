@@ -3,13 +3,11 @@
     public class RcApiDto
     {
         public string VehicleNumber { get; set; } = string.Empty;
-        public Guid VehicleTypeId { get; set; }
         public string VehicleClass { get; set; } = string.Empty;
         public string ChassisNumber { get; set; } = string.Empty;
         public string EngineNumber { get; set; } = string.Empty;
         public string ManufacturerName { get; set; } = string.Empty;
         public string Model { get; set; } = string.Empty;
-        public string MakerModel { get; set; } = string.Empty;
         public string VehicleColor { get; set; } = string.Empty;
         public string FuelType { get; set; } = string.Empty;
         public string NormsType { get; set; } = string.Empty;
@@ -21,7 +19,7 @@
         public string Wheelbase { get; set; } = string.Empty;
         public string SeatCapacity { get; set; } = string.Empty;
         public string CylinderCount { get; set; } = string.Empty;
-        public bool IsCommercial { get; set; }
+        public string IsCommercial { get; set; }
         public bool IsFinanced { get; set; }
         // Owner Details
         public string OwnerName { get; set; } = string.Empty;
@@ -31,10 +29,10 @@
 
         // Registration Details
         public string RegistrationAuthority { get; set; } = string.Empty;
-        public string RegistrationDate { get; set; } = string.Empty;
-        public string RcExpiryDate { get; set; } = string.Empty;
+        public DateOnly? RegistrationDate { get; set; }
+        public DateOnly? RcExpiryDate { get; set; }
         public string ManufacturingMonthYear { get; set; } = string.Empty;
-        public string VehicleTaxUpto { get; set; } = string.Empty;
+        public DateOnly? VehicleTaxUpto { get; set; }
         public string RtoCode { get; set; } = string.Empty;
 
         // Insurance Details
@@ -42,7 +40,7 @@
 
         public string InsurancePolicyNumber { get; set; } = string.Empty;
 
-        public string InsuranceValidUpto { get; set; } = string.Empty;
+        public DateOnly? InsuranceValidUpto { get; set; }
 
         // Finance
         public string FinancerName { get; set; } = string.Empty;
@@ -50,7 +48,7 @@
         // Pollution
         public string PuccNumber { get; set; } = string.Empty;
 
-        public string PuccUpto { get; set; } = string.Empty;
+        public DateOnly? PuccUpto { get; set; }
 
         // Present Address
         public string PresentAddress { get; set; } = string.Empty;

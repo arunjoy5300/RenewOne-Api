@@ -14,6 +14,7 @@ using RenewOne.Application.Interfaces.Repositories.Class;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.Repositories.Users;
+using RenewOne.Application.Interfaces.Services.External.RC;
 using RenewOne.Application.Interfaces.Services.Jwt;
 using RenewOne.Application.Interfaces.Services.RC;
 using RenewOne.Application.LogicService.Accounts;
@@ -89,7 +90,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.Configure<RcServiceOptions>(
     builder.Configuration.GetSection("RcValidation"));
 
-builder.Services.AddHttpClient<IRCService, RCService>();
+builder.Services.AddHttpClient<IRCIDSService, RCIDSService>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();

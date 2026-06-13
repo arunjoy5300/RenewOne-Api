@@ -6,7 +6,7 @@ namespace RenewOne.Domain.Entities
     {
         public Guid EnquiryId { get; set; }
         public Guid VehicleDetailsId { get; set; }
-        public virtual VehicleDetails? VehicleDetails { get; set; }
+        public Guid VehicleTypeId { get; set; }
         public string? IdvValue { get; set; }
 
         // Optional fields for RC details
@@ -16,5 +16,7 @@ namespace RenewOne.Domain.Entities
         public int NcbPercentage { get; set; } = 0;
         public bool IsApiFetchedData { get; set; }
         public virtual Enquiry? Enquiry { get; set; }
+        public virtual VehicleDetails? VehicleDetails { get; set; }
+        public virtual VehicleType VehicleType { get; set; }
     }
 }
