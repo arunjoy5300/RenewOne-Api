@@ -23,6 +23,7 @@ namespace RenewOne.API.Controllers.Accounts
         }
         [Authorize(Roles = "SuperAdmin,AdminEmployee")]
         [HttpPost("approve-agent/{accountId}")]
+        [Authorize(Roles = "SuperAdmin,AdminStaff")]
         public async Task<IActionResult> ApproveAgent([FromRoute] Guid accountId)
         {
             var result = await _accountLogicService.ApproveAgentAsync(accountId);

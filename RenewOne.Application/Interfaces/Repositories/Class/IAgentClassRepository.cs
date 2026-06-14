@@ -6,5 +6,6 @@ namespace RenewOne.Application.Interfaces.Repositories.Class
     {
         Task<IEnumerable<AgentClass>> GetAllAsync();
         Task<AgentClass?> GetByIdAsync(Guid id);
+        IQueryable<AgentClass> GetQueryable();
     }
 }

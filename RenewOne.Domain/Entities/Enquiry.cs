@@ -11,13 +11,14 @@ namespace RenewOne.Domain.Entities
         public Guid CreatedByUserId { get; set; }
         public Guid? AssignedEmployeeId { get; set; }
         public int Priority { get; set; }
-        public int Status { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public Guid? SelectedQuoteId { get; set; }
         public virtual Account? Tenant { get; set; }
         public virtual InsuranceType? InsuranceType { get; set; }
-        public virtual EnquiryPricing? Pricing { get; set; }
-        public virtual VehicleEnquiryDetails? VehicleDetails { get; set; }
+        public virtual VehicleEnquiryDetails? VehicleEnquiryDetails { get; set; }
         public virtual ICollection<Document> Documents { get; set; } = new HashSet<Document>();
         public virtual ICollection<AssignmentHistory> AssignmentHistories { get; set; } = new HashSet<AssignmentHistory>();
+        public virtual ICollection<EnquiryQuote> EnquiryQuotes { get; set; } = new List<EnquiryQuote>();
 
     }
 }
