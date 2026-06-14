@@ -23,7 +23,7 @@ namespace RenewOne.Persistence
 
         // Core Business
         public DbSet<Enquiry> Enquiries { get; set; }
-        public DbSet<EnquiryPricing> EnquiryPricings { get; set; }
+        public DbSet<EnquiryQuote> EnquiryQuotes { get; set; }
         public DbSet<VehicleEnquiryDetails> VehicleEnquiryDetails { get; set; }
         public DbSet<Document> Documents { get; set; }
         public DbSet<AssignmentHistory> AssignmentHistories { get; set; }
@@ -63,6 +63,13 @@ namespace RenewOne.Persistence
                 entity.Property(p => p.Id).IsRequired();
             });
 
+            modelBuilder.Entity<Enquiry>()
+                .HasOne(e => e.VehicleEnquiryDetails)
+                .WithOne(v => v.Enquiry)
+                .HasForeignKey<VehicleEnquiryDetails>(v => v.EnquiryId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Cascade);
+
             modelBuilder.Entity<Account>()
                 .HasOne(a => a.AgentClass)
                 .WithMany(ac => ac.Accounts)
@@ -80,14 +87,6 @@ namespace RenewOne.Persistence
                 .Property(p => p.CompanyPayable).HasPrecision(18, 2);
             modelBuilder.Entity<PricingMaster>()
                 .Property(p => p.AdminProfit).HasPrecision(18, 2);
-
-            // EnquiryPricing
-            modelBuilder.Entity<EnquiryPricing>()
-                .Property(ep => ep.TotalPremium).HasPrecision(18, 2);
-            modelBuilder.Entity<EnquiryPricing>()
-                .Property(ep => ep.CompanyPayable).HasPrecision(18, 2);
-            modelBuilder.Entity<EnquiryPricing>()
-                .Property(ep => ep.AdminProfit).HasPrecision(18, 2);
 
             modelBuilder.Entity<VehicleEnquiryDetails>()
                 .HasOne(v => v.VehicleDetails)
@@ -130,7 +129,7 @@ namespace RenewOne.Persistence
                 .HasOne(p => p.InsuranceCompany)
                 .WithMany(i => i.PricingMasters)
                 .HasForeignKey(p => p.InsuranceCompanyId)
-                .OnDelete(DeleteBehavior.Restrict); // അബദ്ധത്തിൽ കമ്പനി ഡിലീറ്റ് ആകാതിരിക്കാൻ
+                .OnDelete(DeleteBehavior.Restrict);
 
             // ഒരു ഫിക്സഡ് ഡേറ്റ് ക്രിയേറ്റ് ചെയ്യുക
             //var seedDate = new DateTime(2026, 05, 12);

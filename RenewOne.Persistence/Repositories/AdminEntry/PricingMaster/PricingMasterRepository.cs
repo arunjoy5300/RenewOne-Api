@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using RenewOne.Application.DTOs.Response.PricingMaster;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.PricingMaster;
+using RenewOne.Domain.Entities;
 
 namespace RenewOne.Persistence.Repositories.AdminEntry.PricingMaster
 {
@@ -39,6 +39,20 @@ namespace RenewOne.Persistence.Repositories.AdminEntry.PricingMaster
         {
             _context.PricingMasters.Update(pricingMaster);
             return await _context.SaveChangesAsync() > 0;
+        }
+        public async Task<List<Domain.Entities.PricingMaster>> GetTPPricing(Guid vehicleTypeId, Guid agentClassId, int cc) 
+        {
+            return await _context.PricingMasters
+                .Include(p => p.AgentClass)
+                .Include(p => p.VehicleType)
+                .Include(p => p.InsuranceCompany)
+                .Where(p =>
+                    p.VehicleTypeId == vehicleTypeId &&
+                    p.AgentClassId == agentClassId &&
+                    p.MinCC <= cc &&
+                    p.MaxCC >= cc &&
+                    p.IsActive)
+                .ToListAsync();
         }
     }
 }

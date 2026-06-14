@@ -7,5 +7,6 @@ namespace RenewOne.Domain.Entities
         public string CompanyName { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public virtual ICollection<PricingMaster>? PricingMasters { get; set; }
+        public virtual ICollection<EnquiryQuote> EnquiryQuotes { get; set; } = new List<EnquiryQuote>();
     }
 }
