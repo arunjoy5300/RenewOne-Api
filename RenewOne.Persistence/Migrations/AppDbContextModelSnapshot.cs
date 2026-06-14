@@ -707,7 +707,6 @@ namespace RenewOne.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("MIPolicyType")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("NcbPercentage")
@@ -966,8 +965,7 @@ namespace RenewOne.Persistence.Migrations
                     b.HasOne("RenewOne.Domain.Entities.Enquiry", "Enquiry")
                         .WithOne("VehicleEnquiryDetails")
                         .HasForeignKey("RenewOne.Domain.Entities.VehicleEnquiryDetails", "EnquiryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("RenewOne.Domain.Entities.VehicleDetails", "VehicleDetails")
                         .WithMany("EnquiryDetails")
