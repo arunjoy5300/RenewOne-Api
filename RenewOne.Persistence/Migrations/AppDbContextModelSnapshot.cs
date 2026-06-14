@@ -177,8 +177,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("DocSide")
-                        .HasColumnType("bit");
+                    b.Property<string>("DocSide")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DocType")
                         .IsRequired()
@@ -230,6 +231,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<int>("Priority")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("SelectedQuoteId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -249,21 +253,19 @@ namespace RenewOne.Persistence.Migrations
                     b.ToTable("Enquiries");
                 });
 
-            modelBuilder.Entity("RenewOne.Domain.Entities.EnquiryPricing", b =>
+            modelBuilder.Entity("RenewOne.Domain.Entities.EnquiryQuote", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("AdminProfit")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("AgentPoint")
-                        .HasColumnType("int");
+                    b.Property<decimal>("AgentPoints")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("CompanyPayable")
-                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -272,22 +274,34 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("EnquiryId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("TotalPremium")
-                        .HasPrecision(18, 2)
+                    b.Property<decimal?>("Idv")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("InsuranceCompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsManualQuote")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSelected")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Premium")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("EnquiryId")
-                        .IsUnique();
+                    b.HasIndex("EnquiryId");
 
-                    b.ToTable("EnquiryPricings");
+                    b.HasIndex("InsuranceCompanyId");
+
+                    b.ToTable("EnquiryQuotes");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceCompany", b =>
@@ -414,8 +428,8 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("AgentClassId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int?>("AgentPoints")
-                        .HasColumnType("int");
+                    b.Property<decimal>("AgentPoints")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("CompanyPayable")
                         .HasPrecision(18, 2)
@@ -693,6 +707,7 @@ namespace RenewOne.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("MIPolicyType")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("NcbPercentage")
@@ -880,15 +895,23 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("RenewOne.Domain.Entities.EnquiryPricing", b =>
+            modelBuilder.Entity("RenewOne.Domain.Entities.EnquiryQuote", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.Enquiry", "Enquiry")
-                        .WithOne("Pricing")
-                        .HasForeignKey("RenewOne.Domain.Entities.EnquiryPricing", "EnquiryId")
+                        .WithMany("EnquiryQuotes")
+                        .HasForeignKey("EnquiryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.InsuranceCompany", "InsuranceCompany")
+                        .WithMany("EnquiryQuotes")
+                        .HasForeignKey("InsuranceCompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Enquiry");
+
+                    b.Navigation("InsuranceCompany");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.LoginHistory", b =>
@@ -984,13 +1007,15 @@ namespace RenewOne.Persistence.Migrations
 
                     b.Navigation("Documents");
 
-                    b.Navigation("Pricing");
+                    b.Navigation("EnquiryQuotes");
 
                     b.Navigation("VehicleEnquiryDetails");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceCompany", b =>
                 {
+                    b.Navigation("EnquiryQuotes");
+
                     b.Navigation("PricingMasters");
                 });
 

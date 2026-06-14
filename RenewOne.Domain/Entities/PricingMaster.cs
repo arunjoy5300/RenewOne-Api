@@ -13,7 +13,7 @@ namespace RenewOne.Domain.Entities
         public int? MaxCC { get; set; }
         public decimal TotalPremium { get; set; }
         public decimal CompanyPayable { get; set; }
-        public int? AgentPoints { get; set; }
+        public decimal AgentPoints { get; set; }
         public decimal AdminProfit { get; set; }
         public bool IsActive { get; set; } = true;
         public virtual AgentClass? AgentClass { get; set; }

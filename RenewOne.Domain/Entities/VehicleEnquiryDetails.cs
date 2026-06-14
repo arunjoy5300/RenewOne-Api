@@ -17,6 +17,6 @@ namespace RenewOne.Domain.Entities
         public bool IsApiFetchedData { get; set; }
         public virtual Enquiry? Enquiry { get; set; }
         public virtual VehicleDetails? VehicleDetails { get; set; }
-        public virtual VehicleType VehicleType { get; set; }
+        public virtual VehicleType? VehicleType { get; set; }
     }
 }
