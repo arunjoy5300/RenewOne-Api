@@ -78,24 +78,8 @@ namespace RenewOne.Domain.Entities
         // Present Address
         public string PresentAddress { get; set; } = string.Empty;
 
-        public string PresentDistrict { get; set; } = string.Empty;
-
-        public string PresentState { get; set; } = string.Empty;
-
-        public string PresentCity { get; set; } = string.Empty;
-
-        public string PresentPincode { get; set; } = string.Empty;
-
         // Permanent Address
         public string PermanentAddress { get; set; } = string.Empty;
-
-        public string PermanentDistrict { get; set; } = string.Empty;
-
-        public string PermanentState { get; set; } = string.Empty;
-
-        public string PermanentCity { get; set; } = string.Empty;
-
-        public string PermanentPincode { get; set; } = string.Empty;
 
         // Raw External Response
         public string? RawApiResponse { get; set; }
