@@ -565,10 +565,6 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<bool>("IsFinanced")
                         .HasColumnType("bit");
 
-                    b.Property<string>("MakerModel")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ManufacturerName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -605,39 +601,7 @@ namespace RenewOne.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PermanentCity")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PermanentDistrict")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PermanentPincode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PermanentState")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PresentAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PresentCity")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PresentDistrict")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PresentPincode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PresentState")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -737,7 +701,7 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("VehicleDetailsId")
+                    b.Property<Guid?>("VehicleDetailsId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("VehicleTypeId")
@@ -985,8 +949,7 @@ namespace RenewOne.Persistence.Migrations
                     b.HasOne("RenewOne.Domain.Entities.VehicleDetails", "VehicleDetails")
                         .WithMany("EnquiryDetails")
                         .HasForeignKey("VehicleDetailsId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
                         .WithMany("EnquiryDetails")
