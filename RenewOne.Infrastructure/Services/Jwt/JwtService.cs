@@ -15,7 +15,7 @@ namespace RenewOne.Infrastructure.Services.Jwt
         {
             _config = config;
         }
-        public string GenerateToken(User user)
+        public string GenerateToken(Domain.Entities.User user)
         {
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is missing"))

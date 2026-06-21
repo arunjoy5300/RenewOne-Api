@@ -20,7 +20,8 @@
         public string FuelType { get; set; } = string.Empty;
 
         public string CubicCapacity { get; set; } = string.Empty;
-
+        public string CreatedBy { get; set; } = string.Empty;
+        public string AssignedAgent { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }

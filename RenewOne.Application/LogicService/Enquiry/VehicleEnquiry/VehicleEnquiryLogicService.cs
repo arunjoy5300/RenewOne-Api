@@ -19,6 +19,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 {
     public class VehicleEnquiryLogicService : IVehicleEnquiryLogicService
     {
+        #region DI
         private readonly IVehicleEnquiryRepository _vehicleEnquiryRepository;
         private readonly IEnquiryRepository _enquiryRepository;
         private readonly IRCIDSService _rcApiService;
@@ -28,6 +29,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         private readonly IPricingMasterRepository _pricingMasterRepository;
         private readonly IAccountRepository _accountRepository;
         private readonly IEnquiryQuoteRepository _enquiryQuoteRepository;
+        #endregion
+
+        #region Constructor
         public VehicleEnquiryLogicService(
             IVehicleEnquiryRepository vehicleEnquiryRepository, 
             IRCIDSService rcApiService,
@@ -49,6 +53,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             _accountRepository = accountRepository;
             _enquiryQuoteRepository = enquiryQuoteRepository;
         }
+        #endregion
 
         #region CreateVehicleEnquiryAsync
         public async Task<Result<VehicleEnquiryResponse>> CreateVehicleEnquiryAsync(CreateVehicleEnquiry request, Guid tenantId, Guid userId)
@@ -261,6 +266,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         }
         #endregion
 
+        #region SubmitVehicleEnquiryAsync
         public async Task<Result<EnquirySubmitResponse>> SubmitVehicleEnquiryAsync(SubmitVehicleEnquiry request, Guid AccountId,CancellationToken cancellationToken = default)
         {
             bool hasInstantQuotes = false;
@@ -407,5 +413,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 //throw;
             }
         }
+        #endregion
     }
 }

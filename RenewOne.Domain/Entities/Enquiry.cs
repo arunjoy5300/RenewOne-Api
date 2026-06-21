@@ -19,6 +19,7 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<Document> Documents { get; set; } = new HashSet<Document>();
         public virtual ICollection<AssignmentHistory> AssignmentHistories { get; set; } = new HashSet<AssignmentHistory>();
         public virtual ICollection<EnquiryQuote> EnquiryQuotes { get; set; } = new List<EnquiryQuote>();
-
+        public virtual User? CreatedByUser { get; set; }
+        public virtual User? AssignedEmployee { get; set; }
     }
 }

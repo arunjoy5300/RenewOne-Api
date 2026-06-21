@@ -94,6 +94,19 @@ namespace RenewOne.Persistence
                 .HasForeignKey(v => v.VehicleDetailsId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Enquiry>()
+                .HasOne(e => e.CreatedByUser)
+                .WithMany(u => u.CreatedEnquiries)
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Enquiry>()
+                .HasOne(e => e.AssignedEmployee)
+                .WithMany(u => u.AssignedEnquiries)
+                .HasForeignKey(e => e.AssignedEmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
             modelBuilder.Entity<AssignmentHistory>(entity =>
             {
                 entity.HasOne(d => d.Enquiry)
