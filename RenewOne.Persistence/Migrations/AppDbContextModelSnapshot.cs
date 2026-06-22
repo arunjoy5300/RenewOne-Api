@@ -432,18 +432,15 @@ namespace RenewOne.Persistence.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("CashfreeOrderId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CashfreePaymentId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CashfreePaymentSessionId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("CompletedAt")
+                    b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedAt")
@@ -456,8 +453,43 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerPhone")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MerchantOrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Module")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NotifyUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RawResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReturnUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")

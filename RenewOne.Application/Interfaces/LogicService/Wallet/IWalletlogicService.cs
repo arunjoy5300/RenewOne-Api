@@ -1,4 +1,5 @@
-﻿using RenewOne.Application.Common.Models;
+﻿using Microsoft.AspNetCore.Http;
+using RenewOne.Application.Common.Models;
 using RenewOne.Application.Common.Pagination;
 using RenewOne.Application.DTOs.Request.Wallet;
 using RenewOne.Application.DTOs.Response.Wallet;
@@ -11,5 +12,7 @@ namespace RenewOne.Application.Interfaces.LogicService.Wallet
         Task<Result<PagedResponse<WalletTransactionResponse>>> GetTransactionsAsync(WalletTransactionFilter filter);
         Task<Result<bool>> AdjustWalletAsync(WalletAdjustmentRequest request);
         Task<Result<WalletResponse>> GetWalletAsync();
+        Task<Result<WalletRechargeResponse>> RechargeWalletAsync(WalletRechargeRequest request);
+        Task<Result<bool>> ProcessWebhookAsync(string body,IHeaderDictionary headers);
     }
 }
