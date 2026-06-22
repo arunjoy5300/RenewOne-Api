@@ -13,24 +13,23 @@ namespace RenewOne.Persistence.Repositories.Accounts
         }
         public async Task AddAccountAsync(Account account)
         {
-            await _context.SaveChangesAsync();
             await _context.Accounts.AddAsync(account);
         }
 
-        public async Task<bool> ApproveAgentAsync(Guid accountId)
+        public async Task ApproveAgentAsync(Guid accountId)
         {
             var account = await _context.Accounts.Include(a => a.Users)
                 .FirstOrDefaultAsync(a => a.Id == accountId);
 
-            if (account == null) return false;
+            if (account == null)
+                throw new KeyNotFoundException("Agent not found.");
 
             account.IsActive = true;
+
             foreach (var user in account.Users)
             {
                 user.IsActive = true;
             }
-
-            return await _context.SaveChangesAsync() > 0;
         }
 
         public async Task<Account?> GetByIdAsync(Guid id)

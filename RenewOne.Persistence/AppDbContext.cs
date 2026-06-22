@@ -29,6 +29,9 @@ namespace RenewOne.Persistence
         public DbSet<AssignmentHistory> AssignmentHistories { get; set; }
         public DbSet<VehicleDetails> VehicleDetails { get; set; }
         public DbSet<InsuranceCompany> InsuranceCompanies { get; set; }
+        public DbSet<Wallet> Wallets { get; set; }
+        public DbSet<WalletTransaction> WalletTransactions { get; set; }
+        public DbSet<PaymentOrder> PaymentOrders { get; set; }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using RenewOne.Application.DTOs.Request.Wallet;
 using RenewOne.Application.Interfaces.LogicService.Class;
+using RenewOne.Application.Interfaces.LogicService.Wallet;
 
 namespace RenewOne.API.Controllers.AdminControls
 {
@@ -7,11 +10,21 @@ namespace RenewOne.API.Controllers.AdminControls
     [ApiController]
     public class AdminController : ControllerBase
     {
+        #region DI
         private readonly IAgentClassLogicService _agentClassLogicService;
-        public AdminController(IAgentClassLogicService agentClassLogicService)
+        private readonly IWalletlogicService _walletlogicService;
+        #endregion
+
+        #region Constructor
+        public AdminController(
+            IAgentClassLogicService agentClassLogicService,
+            IWalletlogicService walletlogicService)
         {
             _agentClassLogicService = agentClassLogicService;
+            _walletlogicService = walletlogicService;
         }
+        #endregion
+
         [HttpGet("view-agentclass")]
         public async Task<IActionResult> GetAllAgentClasses()
         {
@@ -33,6 +46,14 @@ namespace RenewOne.API.Controllers.AdminControls
                 return NotFound(result);
             else
                 return StatusCode((int)result.StatusCode, result);
+        }
+        [Authorize(Roles = "SuperAdmin")]
+        [HttpPost("wallet/transactions")]
+        public async Task<IActionResult> AdjustWallet(WalletAdjustmentRequest request)
+        {
+            var result = await _walletlogicService.AdjustWalletAsync(request);
+
+            return StatusCode(result.StatusCode, result);
         }
     }
 }

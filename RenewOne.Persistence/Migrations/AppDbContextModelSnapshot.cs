@@ -17,7 +17,7 @@ namespace RenewOne.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -246,6 +246,10 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssignedEmployeeId");
+
+                    b.HasIndex("CreatedByUserId");
+
                     b.HasIndex("InsuranceTypeId");
 
                     b.HasIndex("TenantId");
@@ -413,6 +417,59 @@ namespace RenewOne.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("LoginHistories");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.PaymentOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CashfreeOrderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CashfreePaymentId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CashfreePaymentSessionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByIpAddress")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PaymentOrders");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.PricingMaster", b =>
@@ -818,6 +875,100 @@ namespace RenewOne.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Balance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique();
+
+                    b.ToTable("Wallets");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.WalletTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceBefore")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByIpAddress")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("PaymentOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReferenceNo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentOrderId");
+
+                    b.HasIndex("WalletId");
+
+                    b.ToTable("WalletTransactions");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.Account", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.AgentClass", "AgentClass")
@@ -877,6 +1028,17 @@ namespace RenewOne.Persistence.Migrations
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Enquiry", b =>
                 {
+                    b.HasOne("RenewOne.Domain.Entities.User", "AssignedEmployee")
+                        .WithMany("AssignedEnquiries")
+                        .HasForeignKey("AssignedEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RenewOne.Domain.Entities.User", "CreatedByUser")
+                        .WithMany("CreatedEnquiries")
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("RenewOne.Domain.Entities.InsuranceType", "InsuranceType")
                         .WithMany("Enquiries")
                         .HasForeignKey("InsuranceTypeId")
@@ -888,6 +1050,10 @@ namespace RenewOne.Persistence.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("AssignedEmployee");
+
+                    b.Navigation("CreatedByUser");
 
                     b.Navigation("InsuranceType");
 
@@ -985,11 +1151,41 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("VehicleType");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.Account", "Account")
+                        .WithOne("Wallet")
+                        .HasForeignKey("RenewOne.Domain.Entities.Wallet", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.WalletTransaction", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.PaymentOrder", "PaymentOrder")
+                        .WithMany()
+                        .HasForeignKey("PaymentOrderId");
+
+                    b.HasOne("RenewOne.Domain.Entities.Wallet", "Wallet")
+                        .WithMany("WalletTransactions")
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PaymentOrder");
+
+                    b.Navigation("Wallet");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.Account", b =>
                 {
                     b.Navigation("Enquiries");
 
                     b.Navigation("Users");
+
+                    b.Navigation("Wallet");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.AgentClass", b =>
@@ -1024,6 +1220,10 @@ namespace RenewOne.Persistence.Migrations
 
             modelBuilder.Entity("RenewOne.Domain.Entities.User", b =>
                 {
+                    b.Navigation("AssignedEnquiries");
+
+                    b.Navigation("CreatedEnquiries");
+
                     b.Navigation("LoginHistories");
                 });
 
@@ -1037,6 +1237,11 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("EnquiryDetails");
 
                     b.Navigation("PricingMasters");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>
+                {
+                    b.Navigation("WalletTransactions");
                 });
 #pragma warning restore 612, 618
         }
