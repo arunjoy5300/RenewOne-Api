@@ -62,5 +62,18 @@ namespace RenewOne.Persistence.Repositories.Enquiry
                     x.Status == EnquiryStatus.Submitted.ToString() ||
                     x.Status == EnquiryStatus.StartQuote.ToString());
         }
+
+        public IQueryable<EnquiryEntity> GetQueryable()
+        {
+            return _dbContext.Enquiries
+                .Include(x => x.CreatedByUser)
+                .Include(x => x.InsuranceType)
+                .Include(x => x.VehicleEnquiryDetails)
+                    .ThenInclude(x => x.VehicleDetails)
+                .Include(x => x.VehicleEnquiryDetails)
+                    .ThenInclude(x => x.VehicleType)
+                .Include(x => x.Documents)
+                .Include(x => x.EnquiryQuotes);
+        }
     }
 }

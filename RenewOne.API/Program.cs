@@ -129,6 +129,7 @@ builder.Services.AddScoped<IWalletlogicService, WalletLogicService>();
 builder.Services.AddScoped<IWalletTransactionRepository, WalletTransactionRepository>();
 builder.Services.AddHttpClient<ICashfreeService, CashfreeService>();
 builder.Services.AddScoped<IPaymentOrderRepository, PaymentOrderRepository>();
+builder.Services.AddScoped<IUserTaskAllocationRepository, UserTaskAllocationRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

@@ -15,6 +15,8 @@ namespace RenewOne.API.Controllers.User
         {
             _userLogicService = userLogicService;
         }
+
+        [Authorize(Roles ="Agent")]
         [HttpPost("create-staff")]
         public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest request)
         {
@@ -22,6 +24,7 @@ namespace RenewOne.API.Controllers.User
             return StatusCode(result.StatusCode, result);
         }
 
+        [Authorize(Roles = "Agent,Staff")]
         [HttpGet("my-staff")]
         public async Task<IActionResult> GetMyStaff()
         {
@@ -29,14 +32,16 @@ namespace RenewOne.API.Controllers.User
             return StatusCode(result.StatusCode, result);
         }
 
+        [Authorize(Roles = "Agent")]
         [HttpPut("toggle-status/{id}")]
         public async Task<IActionResult> ToggleStatus(Guid id)
         {
             var result = await _userLogicService.ToggleStaffStatusAsync(id, CurrentUserAccountId);
             return StatusCode(result.StatusCode, result);
         }
-        [HttpPost("create-internal-user")]
-        [Authorize(Roles = "SuperAdmin")]
+
+        [HttpPost("admin/create-internal-user")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
         public async Task<IActionResult> CreateInternalUser([FromBody] CreateInternalUserRequest request)
         {
             var result = await _userLogicService.CreateInternalUserAsync(request);

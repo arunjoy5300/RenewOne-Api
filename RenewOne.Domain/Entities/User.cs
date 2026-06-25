@@ -16,5 +16,7 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<LoginHistory> LoginHistories { get; set; } = new HashSet<LoginHistory>();
         public virtual ICollection<Enquiry> CreatedEnquiries { get; set; } = new HashSet<Enquiry>();
         public virtual ICollection<Enquiry> AssignedEnquiries { get; set; } = new HashSet<Enquiry>();
+        public virtual ICollection<UserTaskAllocation> UserTaskAllocations { get; set; }
+        = new HashSet<UserTaskAllocation>();
     }
 }

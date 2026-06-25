@@ -111,6 +111,25 @@ namespace RenewOne.Persistence
                 .HasForeignKey(e => e.AssignedEmployeeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<UserTaskAllocation>()
+                .HasOne(x => x.User)
+                .WithMany(x => x.UserTaskAllocations)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserTaskAllocation>()
+                .HasOne(x => x.InsuranceType)
+                .WithMany(x => x.UserTaskAllocations)
+                .HasForeignKey(x => x.InsuranceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserTaskAllocation>()
+                .HasOne(x => x.VehicleType)
+                .WithMany(x => x.UserTaskAllocations)
+                .HasForeignKey(x => x.VehicleTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+
 
             modelBuilder.Entity<AssignmentHistory>(entity =>
             {

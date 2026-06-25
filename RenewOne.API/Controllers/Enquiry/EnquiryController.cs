@@ -7,7 +7,6 @@ namespace RenewOne.API.Controllers.Enquiry
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class EnquiryController : ControllerBase
     {
         private readonly IEnquiryLogicService _enquiryLogicService;
@@ -17,6 +16,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpGet("{id}")]
+        [Authorize()]
         public async Task<IActionResult> GetEnquiry(Guid id)
         {
             var result = await _enquiryLogicService.GetEnquiryAsync(id);
@@ -28,6 +28,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpPost("get-all-enquiries")]
+        [Authorize(Roles ="Agent,Staff")]
         public async Task<IActionResult> GetEnquiries(EnquiryFilter request)
         {
 
@@ -38,7 +39,9 @@ namespace RenewOne.API.Controllers.Enquiry
 
             return StatusCode(result.StatusCode, result);
         }
+
         [HttpPost("get-my-enquiries")]
+        [Authorize(Roles ="Agent,Staff")]
         public async Task<IActionResult> GetMyEnquiries(EnquiryFilter request)
         {
 
@@ -49,7 +52,9 @@ namespace RenewOne.API.Controllers.Enquiry
 
             return StatusCode(result.StatusCode, result);
         }
+
         [HttpGet("dashboard/all")]
+        [Authorize(Roles ="Agent,Staff")]
         public async Task<IActionResult> GetAllDashboard([FromQuery] DashboardFilter filter)
         {
             var result = await _enquiryLogicService.AllEnquiryDashboard(filter);
@@ -60,6 +65,7 @@ namespace RenewOne.API.Controllers.Enquiry
             return StatusCode(result.StatusCode, result);
         }
         [HttpGet("dashboard/my")]
+        [Authorize(Roles ="Agent,Staff")]
         public async Task<IActionResult> GetMyDashboard([FromQuery] DashboardFilter filter)
         {
             var result = await _enquiryLogicService.MyEnquiryDashboard(filter);
@@ -69,11 +75,21 @@ namespace RenewOne.API.Controllers.Enquiry
 
             return StatusCode(result.StatusCode, result);
         }
+
         [HttpGet("admin/common-queue")]
-        [AllowAnonymous]
+        [Authorize(Roles ="SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> GetCommonQueue([FromQuery] CommonQueueFilter filter)
         {
             var result = await _enquiryLogicService.GetCommonQueueAsync(filter);
+
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
+        [HttpGet("admin/common-queue/my")]
+        public async Task<IActionResult> GetMyCommonQueue([FromQuery] CommonQueueFilter filter)
+        {
+            var result = await _enquiryLogicService.GetMyCommonQueueAsync(filter);
 
             return StatusCode(result.StatusCode, result);
         }

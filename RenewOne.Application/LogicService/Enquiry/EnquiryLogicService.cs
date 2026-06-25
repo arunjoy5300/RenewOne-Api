@@ -6,8 +6,8 @@ using RenewOne.Application.DTOs.Response.Enquiry;
 using RenewOne.Application.Filters.Enquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
+using RenewOne.Application.Interfaces.Repositories.Users;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
-using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
 
 namespace RenewOne.Application.LogicService.Enquiry
@@ -18,17 +18,20 @@ namespace RenewOne.Application.LogicService.Enquiry
         private readonly IEnquiryRepository _enquiryRepository;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<EnquiryLogicService> _logger;
+        private readonly IUserTaskAllocationRepository _userTaskAllocationRepository;
         #endregion
 
         #region Constructor
         public EnquiryLogicService(
             IEnquiryRepository enquiryRepository,
             ICurrentUserService currentUser,
-            ILogger<EnquiryLogicService> logger)
+            ILogger<EnquiryLogicService> logger,
+            IUserTaskAllocationRepository userTaskAllocationRepository)
         {
             _enquiryRepository = enquiryRepository;
             _currentUser = currentUser;
             _logger = logger;
+            _userTaskAllocationRepository = userTaskAllocationRepository;
         }
         #endregion
 
@@ -551,6 +554,84 @@ namespace RenewOne.Application.LogicService.Enquiry
             return Result<PagedResponse<CommonQueueResponse>>.Success(
                 pagedResult,
                 "Enquiries fetched successfully");
+        }
+
+        public async Task<Result<PagedResponse<CommonQueueResponse>>> GetMyCommonQueueAsync(CommonQueueFilter filter)
+        {
+            var userId = _currentUser.UserId;
+
+            var allocations = _userTaskAllocationRepository
+                .GetQueryable()
+                .Where(x => x.UserId == userId && x.CanAssign);
+
+            var query = _enquiryRepository
+                .GetQueryable()
+                .Where(e =>
+                    (e.Status == EnquiryStatus.Submitted.ToString() ||
+                     e.Status == EnquiryStatus.StartQuote.ToString()) &&
+                    e.AssignedEmployeeId == null &&
+                    allocations.Any(a =>
+                        a.InsuranceTypeId == e.InsuranceTypeId &&
+                        (a.VehicleTypeId == null ||
+                         a.VehicleTypeId == e.VehicleEnquiryDetails!.VehicleTypeId)));
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(e =>
+                    e.CustomerName.Contains(filter.Search) ||
+                    e.CustomerNumber.Contains(filter.Search) ||
+                    (e.VehicleEnquiryDetails != null &&
+                     e.VehicleEnquiryDetails.VehicleDetails != null &&
+                     e.VehicleEnquiryDetails.VehicleDetails.VehicleNumber.Contains(filter.Search)));
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+                query = query.Where(e => e.InsuranceTypeId == filter.InsuranceTypeId);
+
+            if (filter.VehicleTypeId.HasValue)
+                query = query.Where(e =>
+                    e.VehicleEnquiryDetails != null &&
+                    e.VehicleEnquiryDetails.VehicleTypeId == filter.VehicleTypeId);
+
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(e => e.CreatedAt >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value.ToDateTime(TimeOnly.MaxValue);
+                query = query.Where(e => e.CreatedAt <= to);
+            }
+
+            query = filter.SortDescending
+                ? query.OrderByDescending(e => e.CreatedAt)
+                : query.OrderBy(e => e.CreatedAt);
+
+            var pagedResult = await query
+                .Select(e => new CommonQueueResponse
+                {
+                    EnquiryId = e.Id,
+                    CustomerName = e.CustomerName,
+                    CustomerNumber = e.CustomerNumber,
+                    VehicleNumber = e.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
+                    VehicleType = e.VehicleEnquiryDetails.VehicleType.TypeName,
+                    InsuranceType = e.InsuranceType.Name,
+                    PolicyType = e.VehicleEnquiryDetails.MIPolicyType,
+                    Status = "Unassigned",
+                    CreatedBy = e.CreatedByUser!.FullName,
+                    CreatedByPhone = e.CreatedByUser.PhoneNumber,
+                    CreatedByRole = e.CreatedByUser.UserType,
+                    AgencyName = e.Tenant.AgentName,
+                    SubmittedOn = e.UpdatedAt,
+                    Priority = e.Priority
+                })
+                .ToPagedResponseAsync(filter.PageNumber, filter.PageSize);
+
+            return Result<PagedResponse<CommonQueueResponse>>.Success(
+                pagedResult,
+                "Common queue fetched successfully.");
         }
     }
 }
