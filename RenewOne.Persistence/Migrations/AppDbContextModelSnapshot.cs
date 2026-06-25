@@ -609,6 +609,41 @@ namespace RenewOne.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("CanAssign")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InsuranceTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("VehicleTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InsuranceTypeId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VehicleTypeId");
+
+                    b.ToTable("UserTaskAllocations");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleDetails", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1156,6 +1191,31 @@ namespace RenewOne.Persistence.Migrations
                         .HasForeignKey("AccountId");
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.InsuranceType", "InsuranceType")
+                        .WithMany()
+                        .HasForeignKey("InsuranceTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.VehicleType", "VehicleType")
+                        .WithMany()
+                        .HasForeignKey("VehicleTypeId");
+
+                    b.Navigation("InsuranceType");
+
+                    b.Navigation("User");
+
+                    b.Navigation("VehicleType");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleEnquiryDetails", b =>

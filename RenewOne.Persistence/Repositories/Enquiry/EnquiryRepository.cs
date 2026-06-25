@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
+using RenewOne.Domain.Enums;
 using EnquiryEntity = RenewOne.Domain.Entities.Enquiry;
 
 namespace RenewOne.Persistence.Repositories.Enquiry
@@ -47,6 +48,19 @@ namespace RenewOne.Persistence.Repositories.Enquiry
         {
             return _dbContext.Enquiries
                 .AsNoTracking();
+        }
+
+        public IQueryable<EnquiryEntity> GetCommonQueue()
+        {
+            return _dbContext.Enquiries
+                .Include(x => x.VehicleEnquiryDetails)
+                    .ThenInclude(x => x.VehicleType)
+                .Include(x => x.VehicleEnquiryDetails)
+                    .ThenInclude(x => x.VehicleDetails)
+                .Include(x => x.CreatedByUser)
+                .Where(x =>
+                    x.Status == EnquiryStatus.Submitted.ToString() ||
+                    x.Status == EnquiryStatus.StartQuote.ToString());
         }
     }
 }

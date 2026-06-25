@@ -69,5 +69,13 @@ namespace RenewOne.API.Controllers.Enquiry
 
             return StatusCode(result.StatusCode, result);
         }
+        [HttpGet("admin/common-queue")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCommonQueue([FromQuery] CommonQueueFilter filter)
+        {
+            var result = await _enquiryLogicService.GetCommonQueueAsync(filter);
+
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

@@ -12,5 +12,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Enquiry
         Task<Result<PagedResponse<EnquiryListResponse>>> GetMyEnquiriesAsync(EnquiryFilter enquiryFilter);
         Task<Result<EnquiryDashboardResponse>>  AllEnquiryDashboard(DashboardFilter filter);
         Task<Result<EnquiryDashboardResponse>> MyEnquiryDashboard(DashboardFilter filter);
+        Task<Result<PagedResponse<CommonQueueResponse>>> GetCommonQueueAsync(CommonQueueFilter filter);
     }
 }

@@ -33,6 +33,8 @@ namespace RenewOne.Persistence
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
         public DbSet<PaymentOrder> PaymentOrders { get; set; }
 
+        public DbSet<UserTaskAllocation> UserTaskAllocations { get; set; }
+
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var entries = ChangeTracker

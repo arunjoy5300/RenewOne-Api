@@ -476,5 +476,81 @@ namespace RenewOne.Application.LogicService.Enquiry
             return Result<EnquiryDetailsResponse>.Success(response);
         }
         #endregion
+
+        public async Task<Result<PagedResponse<CommonQueueResponse>>> GetCommonQueueAsync(CommonQueueFilter filter)
+        {
+            var query = _enquiryRepository.GetCommonQueue();
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(x =>
+                    x.CustomerName.Contains(filter.Search) ||
+                    x.CustomerNumber.Contains(filter.Search) ||
+                    x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber.Contains(filter.Search));
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x => x.InsuranceTypeId == filter.InsuranceTypeId);
+            }
+
+            if (filter.VehicleTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.VehicleEnquiryDetails!.VehicleTypeId == filter.VehicleTypeId);
+            }
+
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.CreatedAt >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value.ToDateTime(TimeOnly.MaxValue);
+                query = query.Where(x => x.CreatedAt <= to);
+            }
+
+            query = filter.SortDescending
+                ? query.OrderByDescending(x => x.CreatedAt)
+                : query.OrderBy(x => x.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new CommonQueueResponse
+                {
+                    EnquiryId = x.Id,
+                    CustomerName = x.CustomerName,
+                    CustomerNumber = x.CustomerNumber,
+                    VehicleNumber = x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
+                    VehicleType = x.VehicleEnquiryDetails.VehicleType.TypeName,
+                    InsuranceType = x.InsuranceType.Name,
+                    PolicyType = x.VehicleEnquiryDetails.MIPolicyType,
+                    Status = x.AssignedEmployeeId == null ? "Unassigned" : "Assigned",
+                    CreatedBy = x.CreatedByUser!.FullName,
+                    CreatedByPhone = x.CreatedByUser!.PhoneNumber,
+                    CreatedByRole = x.CreatedByUser!.UserType,
+                    AgencyName = x.Tenant.AgentName,
+                    SubmittedOn = x.UpdatedAt,
+                    Priority = x.Priority
+                })
+                .ToListAsync();
+
+            var pagedResult = new PagedResponse<CommonQueueResponse>
+            {
+                Items = items,
+                TotalRecords = totalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return Result<PagedResponse<CommonQueueResponse>>.Success(
+                pagedResult,
+                "Enquiries fetched successfully");
+        }
     }
 }

@@ -6,5 +6,6 @@ namespace RenewOne.Application.Interfaces.Repositories.Enquiry
         Task<EnquiryEntity?> GetByIdAsync(Guid enquiryId);
         public IQueryable<EnquiryEntity> GetEnquiries();
         IQueryable<EnquiryEntity> GetEnquiryQueryable();
+        IQueryable<EnquiryEntity> GetCommonQueue();
     }
 }
