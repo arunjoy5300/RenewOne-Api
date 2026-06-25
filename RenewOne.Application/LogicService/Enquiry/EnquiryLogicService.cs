@@ -610,6 +610,8 @@ namespace RenewOne.Application.LogicService.Enquiry
                 : query.OrderBy(e => e.CreatedAt);
 
             var pagedResult = await query
+                .Where(x => x.Status == EnquiryStatus.Submitted.ToString() ||
+                    x.Status == EnquiryStatus.StartQuote.ToString())
                 .Select(e => new CommonQueueResponse
                 {
                     EnquiryId = e.Id,
