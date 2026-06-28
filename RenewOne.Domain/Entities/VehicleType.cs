@@ -11,5 +11,7 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<PricingMaster> PricingMasters { get; set; } = new HashSet<PricingMaster>();
         public virtual ICollection<UserTaskAllocation> UserTaskAllocations { get; set; }
         = new HashSet<UserTaskAllocation>();
+        public virtual ICollection<QRMapping> QRMappings { get; set; }
+        = new HashSet<QRMapping>();
     }
 }

@@ -21,5 +21,8 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<EnquiryQuote> EnquiryQuotes { get; set; } = new List<EnquiryQuote>();
         public virtual User? CreatedByUser { get; set; }
         public virtual User? AssignedEmployee { get; set; }
+        public virtual ICollection<PolicyPayment> PolicyPayments { get; set; }
+    = new HashSet<PolicyPayment>();
+
     }
 }

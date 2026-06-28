@@ -19,5 +19,9 @@ namespace RenewOne.Persistence.Repositories.AdminEntry.PricingQoute
         {
             return await _dbContext.SaveChangesAsync() > 0;
         }
+        public IQueryable<EnquiryQuote> GetEnquiryQuoteQuery()
+        {
+            return _dbContext.EnquiryQuotes;
+        }
     }
 }

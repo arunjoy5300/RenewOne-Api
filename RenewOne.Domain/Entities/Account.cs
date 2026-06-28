@@ -16,5 +16,7 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<User> Users { get; set; } = new HashSet<User>();
         public virtual ICollection<Enquiry> Enquiries { get; set; } = new HashSet<Enquiry>();
         public virtual Wallet? Wallet { get; set; }
+        public virtual Ledger Ledger { get; set; }
+        public virtual ICollection<PolicyPayment> PolicyPayments { get; set; } = new HashSet<PolicyPayment>();
     }
 }

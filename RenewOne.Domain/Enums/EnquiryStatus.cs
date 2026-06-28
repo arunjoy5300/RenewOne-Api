@@ -5,7 +5,8 @@
         Created = 1,
         Submitted = 2,
         Quoted = 3,
-        StartQuote = 4,
-        PolicyIssued = 5
+        PaymentVerificationPending = 4,
+        StartQuote = 5,
+        PolicyIssued = 6
     }
 }

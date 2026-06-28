@@ -4,5 +4,6 @@
     {
         Task AddEnquiryQuoteAsync(Domain.Entities.EnquiryQuote enquiryQuote);
         Task<bool> SaveChangesAsync();
+        IQueryable<Domain.Entities.EnquiryQuote> GetEnquiryQuoteQuery();
     }
 }

@@ -18,6 +18,7 @@ using RenewOne.Application.Interfaces.Repositories.Class;
 using RenewOne.Application.Interfaces.Repositories.Documents;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Enquiry.VehicleEnquiry;
+using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Repositories.Users;
 using RenewOne.Application.Interfaces.Repositories.Wallet;
 using RenewOne.Application.Interfaces.Services.External.Cashfree;
@@ -48,6 +49,7 @@ using RenewOne.Persistence.Repositories.Class;
 using RenewOne.Persistence.Repositories.Document;
 using RenewOne.Persistence.Repositories.Enquiry;
 using RenewOne.Persistence.Repositories.Enquiry.VehicleEnquiry;
+using RenewOne.Persistence.Repositories.UserLedger;
 using RenewOne.Persistence.Repositories.Users;
 using RenewOne.Persistence.Repositories.Wallet;
 using Scalar.AspNetCore;
@@ -130,6 +132,9 @@ builder.Services.AddScoped<IWalletTransactionRepository, WalletTransactionReposi
 builder.Services.AddHttpClient<ICashfreeService, CashfreeService>();
 builder.Services.AddScoped<IPaymentOrderRepository, PaymentOrderRepository>();
 builder.Services.AddScoped<IUserTaskAllocationRepository, UserTaskAllocationRepository>();
+builder.Services.AddScoped<ILedgerRepository, LedgerRepository>();
+builder.Services.AddScoped<IPolicyPaymentRepository, PolicyPaymentRepository>();
+
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

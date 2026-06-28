@@ -1,8 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry;
 using RenewOne.Application.DTOs.Response.Enquiry.VehicleEnquiry;
 using RenewOne.Application.DTOs.Response.RC;
+using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.EnquiryQuote;
@@ -10,8 +12,10 @@ using RenewOne.Application.Interfaces.Repositories.AdminEntry.PricingMaster;
 using RenewOne.Application.Interfaces.Repositories.Documents;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Enquiry.VehicleEnquiry;
+using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Services.External.R2;
 using RenewOne.Application.Interfaces.Services.External.RC;
+using RenewOne.Application.Interfaces.Services.LoggedUser;
 using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
 
@@ -29,11 +33,15 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         private readonly IPricingMasterRepository _pricingMasterRepository;
         private readonly IAccountRepository _accountRepository;
         private readonly IEnquiryQuoteRepository _enquiryQuoteRepository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly ILedgerRepository _ledgerRepository;
+        private readonly ICurrentUserService _currentUser;
+        private readonly IPolicyPaymentRepository _policyPaymentRepository;
         #endregion
 
         #region Constructor
         public VehicleEnquiryLogicService(
-            IVehicleEnquiryRepository vehicleEnquiryRepository, 
+            IVehicleEnquiryRepository vehicleEnquiryRepository,
             IRCIDSService rcApiService,
             IEnquiryRepository enquiryRepository,
             ILogger<IVehicleEnquiryLogicService> logger,
@@ -41,7 +49,11 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             IDocumentRepository documentRepository,
             IPricingMasterRepository pricingMasterRepository,
             IAccountRepository accountRepository,
-            IEnquiryQuoteRepository enquiryQuoteRepository)
+            IEnquiryQuoteRepository enquiryQuoteRepository,
+            IUnitOfWork unitOfWork,
+            ILedgerRepository ledgerRepository,
+            ICurrentUserService currentUser,
+            IPolicyPaymentRepository policyPaymentRepository)
         {
             _vehicleEnquiryRepository = vehicleEnquiryRepository;
             _rcApiService = rcApiService;
@@ -52,6 +64,10 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             _pricingMasterRepository = pricingMasterRepository;
             _accountRepository = accountRepository;
             _enquiryQuoteRepository = enquiryQuoteRepository;
+            _unitOfWork = unitOfWork;
+            _ledgerRepository = ledgerRepository;
+            _currentUser = currentUser;
+            _policyPaymentRepository = policyPaymentRepository;
         }
         #endregion
 
@@ -163,7 +179,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         #endregion
 
         #region MapVehicleDetails - Helper
-        private static VehicleDetails MapVehicleDetails(RcApiDto rc,string vehicleNumber,string phoneNumber)
+        private static VehicleDetails MapVehicleDetails(RcApiDto rc, string vehicleNumber, string phoneNumber)
         {
             return new VehicleDetails
             {
@@ -267,7 +283,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         #endregion
 
         #region SubmitVehicleEnquiryAsync
-        public async Task<Result<EnquirySubmitResponse>> SubmitVehicleEnquiryAsync(SubmitVehicleEnquiry request, Guid AccountId,CancellationToken cancellationToken = default)
+        public async Task<Result<EnquirySubmitResponse>> SubmitVehicleEnquiryAsync(SubmitVehicleEnquiry request, Guid AccountId, CancellationToken cancellationToken = default)
         {
             bool hasInstantQuotes = false;
             try
@@ -282,24 +298,24 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     return Result<EnquirySubmitResponse>.NotFound("Enquiry not found");
                 }
 
-                if(enquiry.Status != EnquiryStatus.Created.ToString())
+                if (enquiry.Status != EnquiryStatus.Created.ToString())
                 {
                     _logger.LogInformation("Only created enquiries can be submitted");
                     return Result<EnquirySubmitResponse>.Failure("Only created enquiries can be submitted");
                 }
 
                 _logger.LogInformation("Proceeding with logic for PolicyType: {type}", enquiry?.VehicleEnquiryDetails?.MIPolicyType);
-                if(enquiry?.VehicleEnquiryDetails?.MIPolicyType == PolicyType.ThirdParty.ToString())
+                if (enquiry?.VehicleEnquiryDetails?.MIPolicyType == PolicyType.ThirdParty.ToString())
                 {
                     var account = await _accountRepository.GetByIdAsync(AccountId);
-                    if(account == null)
+                    if (account == null)
                     {
                         return Result<EnquirySubmitResponse>.NotFound("Account not found");
                     }
                     var agentClassId = account.AgentClassId;
                     _logger.LogInformation("AgentClass Fetched");
-                    
-                    if(!decimal.TryParse(enquiry.VehicleEnquiryDetails?.VehicleDetails?.CubicCapacity, out var ccValue))
+
+                    if (!decimal.TryParse(enquiry.VehicleEnquiryDetails?.VehicleDetails?.CubicCapacity, out var ccValue))
                     {
                         return Result<EnquirySubmitResponse>.Failure("Invalid Cubic Capacity");
                     }
@@ -307,8 +323,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     var cc = (int)ccValue;
                     _logger.LogInformation("CC : {cc}", cc);
 
-                    var pricingMasters = await _pricingMasterRepository.GetTPPricing(enquiry.VehicleEnquiryDetails.VehicleTypeId, agentClassId,cc);
-                    if(!pricingMasters.Any())
+                    var pricingMasters = await _pricingMasterRepository.GetTPPricing(enquiry.VehicleEnquiryDetails.VehicleTypeId, agentClassId, cc);
+                    if (!pricingMasters.Any())
                     {
                         _logger.LogInformation("No qoutes available for this enquiry");
                     }
@@ -344,12 +360,12 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 }
 
-                if(enquiry.VehicleEnquiryDetails?.MIPolicyType == PolicyType.OwnDamaged.ToString() ||
+                if (enquiry.VehicleEnquiryDetails?.MIPolicyType == PolicyType.OwnDamaged.ToString() ||
                     enquiry.VehicleEnquiryDetails?.MIPolicyType == PolicyType.Comprehensive.ToString())
                 {
                     var documents = await _documentRepository.GetAllDocumentsByEnquiryId(request.EnquiryId);
 
-                    if(documents == null)
+                    if (documents == null)
                     {
                         _logger.LogInformation("No documents available");
                     }
@@ -392,7 +408,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     if (!hasPreviousPolicy)
                         missingDocuments.Add("Previous Policy");
 
-                    if(missingDocuments.Any())
+                    if (missingDocuments.Any())
                     {
                         _logger.LogInformation($"Missing Documents: {string.Join(",", missingDocuments)}");
                         return Result<EnquirySubmitResponse>.Failure($"Missing Documents: {string.Join(",", missingDocuments)}", 400);
@@ -407,10 +423,98 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 return Result<EnquirySubmitResponse>.Success(new EnquirySubmitResponse { EnquiryId = enquiry.Id, Status = enquiry.Status, RedirectToQuotes = false }, "Enquiry submitted successfully");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                return Result<EnquirySubmitResponse>.Failure("Error submitting enquiry", 500);
+                return Result<EnquirySubmitResponse>.Failure($"Error submitting enquiry: {ex}", 500);
                 //throw;
+            }
+        }
+
+        #endregion
+
+        #region SubmitPolicyRequest
+        public async Task<Result<string>> SubmitPolicyRequestAsync(SubmitPolicyRequest request, CancellationToken cancellationToken = default)
+        {
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var accountId = _currentUser.AccountId;
+
+                var enquiryQuote = _enquiryQuoteRepository.GetEnquiryQuoteQuery()
+                    .FirstOrDefault(e => e.Id == request.QuoteId && e.EnquiryId == request.EnquiryId);
+
+                if (enquiryQuote == null)
+                {
+                    return Result<string>.NotFound("No selected Quote for enquiry found");
+                }
+
+                if (request.UseLedger)
+                {
+                    var ledger = await _ledgerRepository.GetByAccountIdAsync(accountId);
+                    if (ledger == null)
+                    {
+                        return Result<string>.NotFound("No ledger account found");
+                    }
+
+                    if (ledger.Balance < enquiryQuote.Premium)
+                    {
+                        return Result<string>.Failure("Insufficent ledger balance");
+                    }
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(request.TransactionId))
+                    {
+                        return Result<string>.Failure("Transaction Id is requied");
+                    }
+                }
+
+                var policyPaymentExists = await _policyPaymentRepository.GetPolicyPaymentQueryable()
+                    .AnyAsync(x => x.EnquiryId == request.EnquiryId && x.AccountId == accountId && x.EnquiryQuoteId == request.QuoteId);
+
+                if (policyPaymentExists)
+                {
+                    return Result<string>.Failure(
+                        "A payment request has already been submitted for this quote.");
+                }
+
+                var policyPayment = new PolicyPayment
+                {
+                    Id = Guid.NewGuid(),
+                    EnquiryId = enquiryQuote.EnquiryId,
+                    EnquiryQuoteId = enquiryQuote.Id,
+                    AccountId = accountId,
+                    Amount = enquiryQuote.Premium,
+                    PaymentMode = request.UseLedger ? "Ledger" : "BankTransfer",
+                    Status = "Pending",
+                    Remarks = request.Remarks,
+                    SubmittedByUserId = _currentUser.UserId,
+                    SubmittedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _policyPaymentRepository.AddAsync(policyPayment);
+
+                enquiryQuote.IsSelected = true;
+                enquiryQuote.UpdatedAt = DateTime.UtcNow;
+                enquiryQuote.SelectedByUserId = _currentUser.UserId;
+
+                var enquiry = _enquiryRepository.GetEnquiryQueryable()
+                    .FirstOrDefault(x => x.Id == enquiryQuote.EnquiryId);
+
+                enquiry.Status = EnquiryStatus.PaymentVerificationPending.ToString();
+                enquiry.UpdatedAt = DateTime.UtcNow;
+
+                _enquiryRepository.Update(enquiry);
+
+                await _unitOfWork.CommitTransactionAsync();
+                return Result<string>.Success(policyPayment.Id.ToString(), "Policy Submitted successfully");
+
+            }
+            catch (Exception ex)
+            {
+                return Result<string>.Failure($"Error submitting policy request: {ex}", 500);
             }
         }
         #endregion

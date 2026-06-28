@@ -75,5 +75,10 @@ namespace RenewOne.Persistence.Repositories.Enquiry
                 .Include(x => x.Documents)
                 .Include(x => x.EnquiryQuotes);
         }
+
+        public void Update(EnquiryEntity enquiry)
+        {
+            _dbContext.Enquiries.Update(enquiry);
+        }
     }
 }

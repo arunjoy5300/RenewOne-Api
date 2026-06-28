@@ -18,5 +18,9 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<Enquiry> AssignedEnquiries { get; set; } = new HashSet<Enquiry>();
         public virtual ICollection<UserTaskAllocation> UserTaskAllocations { get; set; }
         = new HashSet<UserTaskAllocation>();
+        public virtual ICollection<PolicyPayment> SubmittedPolicyPayments { get; set; } = new HashSet<PolicyPayment>();
+        public virtual ICollection<PolicyPayment> VerifiedPolicyPayments { get; set; } = new HashSet<PolicyPayment>();
+        public virtual ICollection<EnquiryQuote> QouteSelectedUser { get; set; } = new HashSet<EnquiryQuote>();
+
     }
 }

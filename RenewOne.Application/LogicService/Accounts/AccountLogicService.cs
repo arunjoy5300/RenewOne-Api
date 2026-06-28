@@ -6,6 +6,7 @@ using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Accounts;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
 using RenewOne.Application.Interfaces.Repositories.Class;
+using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Repositories.Users;
 using RenewOne.Application.Interfaces.Repositories.Wallet;
 using RenewOne.Domain.Entities;
@@ -20,6 +21,7 @@ namespace RenewOne.Application.LogicService.Accounts
         private readonly IAgentClassRepository _agentClassRepository;
         private readonly IWalletRepository _walletRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILedgerRepository _ledgerRepository;
         #endregion
 
         #region Constructor
@@ -28,13 +30,15 @@ namespace RenewOne.Application.LogicService.Accounts
             IAccountRepository accountRepository, 
             IAgentClassRepository agentClassRepository,
             IWalletRepository walletRepository,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ILedgerRepository ledgerRepository)
         {
             _userRepository = userRepository;
             _accountRepository = accountRepository;
             _agentClassRepository = agentClassRepository;
             _walletRepository = walletRepository;
             _unitOfWork = unitOfWork;
+            _ledgerRepository = ledgerRepository;
         }
         #endregion
 
@@ -134,10 +138,18 @@ namespace RenewOne.Application.LogicService.Accounts
                     IsActive = true
                 };
 
+                var ledger = new Ledger
+                {
+                    Id= Guid.NewGuid(),
+                    AccountId = newAccount.Id,
+                    Balance = 0,
+                    IsActive = true
+                };
 
                 await _accountRepository.AddAccountAsync(newAccount);
                 await _userRepository.AddUserAsync(newAgent);
                 await _walletRepository.AddAsync(wallet);
+                await _ledgerRepository.AddAsync(ledger);
 
                 await _unitOfWork.CommitTransactionAsync();
 

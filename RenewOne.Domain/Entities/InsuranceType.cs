@@ -10,5 +10,7 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<UserTaskAllocation> UserTaskAllocations { get; set; }
         = new HashSet<UserTaskAllocation>();
         public virtual ICollection<Enquiry> Enquiries { get; set; } = new HashSet<Enquiry>();
+        public virtual ICollection<QRMapping> QRMappings { get; set; }
+        = new HashSet<QRMapping>();
     }
 }

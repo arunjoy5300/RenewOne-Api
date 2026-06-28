@@ -32,8 +32,12 @@ namespace RenewOne.Persistence
         public DbSet<Wallet> Wallets { get; set; }
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
         public DbSet<PaymentOrder> PaymentOrders { get; set; }
-
         public DbSet<UserTaskAllocation> UserTaskAllocations { get; set; }
+        public DbSet<Ledger> Ledgers { get; set; }
+        public DbSet<LedgerTransaction> LedgerTransactions { get; set; }
+        public DbSet<PolicyPayment> PolicyPayments { get; set; }
+        public DbSet<QRMapping> QRMappings { get; set; }
+        public DbSet<QRMaster> QRMasters { get; set; }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -160,6 +164,54 @@ namespace RenewOne.Persistence
                 .WithMany(ac => ac.Accounts)
                 .HasForeignKey(a => a.AgentClassId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<PolicyPayment>()
+    .HasOne(x => x.Enquiry)
+    .WithMany(x => x.PolicyPayments)
+    .HasForeignKey(x => x.EnquiryId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PolicyPayment>()
+                .HasOne(x => x.EnquiryQuote)
+                .WithMany(x => x.PolicyPayments)
+                .HasForeignKey(x => x.EnquiryQuoteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PolicyPayment>()
+                .HasOne(x => x.Account)
+                .WithMany(x => x.PolicyPayments)
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PolicyPayment>()
+                .HasOne(x => x.SubmittedByUser)
+                .WithMany(x => x.SubmittedPolicyPayments)
+                .HasForeignKey(x => x.SubmittedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PolicyPayment>()
+                .HasOne(x => x.VerifiedByUser)
+                .WithMany(x => x.VerifiedPolicyPayments)
+                .HasForeignKey(x => x.VerifiedbyUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<QRMapping>()
+                .HasOne(x => x.QRMaster)
+                .WithMany(x => x.QRMappings)
+                .HasForeignKey(x => x.QRMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<QRMapping>()
+                .HasOne(x => x.InsuranceType)
+                .WithMany(x => x.QRMappings)
+                .HasForeignKey(x => x.InsuranceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<QRMapping>()
+                .HasOne(x => x.VehicleType)
+                .WithMany(x => x.QRMappings)
+                .HasForeignKey(x => x.VehicleTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // PricingMaster-ലേക്ക് പുതിയ InsuranceCompany ബന്ധം ചേർക്കുക
             modelBuilder.Entity<PricingMaster>()
