@@ -86,5 +86,14 @@ namespace RenewOne.API.Controllers.Enquiry
 
             return StatusCode(response.StatusCode, response);
         }
+
+        [HttpGet("{enquiryId:guid}/payment-verification")]
+        public async Task<IActionResult> GetPaymentDetails(Guid enquiryId)
+        {
+            var result = await _enquiryService
+                .GetPaymentDetails(enquiryId);
+
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

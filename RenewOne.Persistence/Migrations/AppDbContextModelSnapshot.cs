@@ -296,7 +296,10 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("SelectedByUserId")
+                    b.Property<DateTime?>("SelectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SelectedByUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UpdatedAt")

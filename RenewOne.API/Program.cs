@@ -9,6 +9,7 @@ using RenewOne.Application.Interfaces.LogicService.Auth;
 using RenewOne.Application.Interfaces.LogicService.Class;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
+using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
 using RenewOne.Application.Interfaces.LogicService.User;
 using RenewOne.Application.Interfaces.LogicService.Wallet;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
@@ -32,6 +33,7 @@ using RenewOne.Application.LogicService.Auth;
 using RenewOne.Application.LogicService.Class;
 using RenewOne.Application.LogicService.Enquiry;
 using RenewOne.Application.LogicService.Enquiry.VehicleEnquiry;
+using RenewOne.Application.LogicService.PolicyPayments;
 using RenewOne.Application.LogicService.Users;
 using RenewOne.Application.LogicService.Wallet;
 using RenewOne.Infrastructure.Options;
@@ -134,6 +136,7 @@ builder.Services.AddScoped<IPaymentOrderRepository, PaymentOrderRepository>();
 builder.Services.AddScoped<IUserTaskAllocationRepository, UserTaskAllocationRepository>();
 builder.Services.AddScoped<ILedgerRepository, LedgerRepository>();
 builder.Services.AddScoped<IPolicyPaymentRepository, PolicyPaymentRepository>();
+builder.Services.AddScoped<IPolicyPaymentLogicService, PolicyPaymentLogicService>();
 
 
 builder.Services.AddControllers();

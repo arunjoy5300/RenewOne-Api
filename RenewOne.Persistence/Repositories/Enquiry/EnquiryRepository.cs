@@ -60,7 +60,7 @@ namespace RenewOne.Persistence.Repositories.Enquiry
                 .Include(x => x.CreatedByUser)
                 .Where(x =>
                     x.Status == EnquiryStatus.Submitted.ToString() ||
-                    x.Status == EnquiryStatus.StartQuote.ToString());
+                    x.Status == EnquiryStatus.PolicyInProgress.ToString());
         }
 
         public IQueryable<EnquiryEntity> GetQueryable()

@@ -1,4 +1,5 @@
-﻿using RenewOne.Application.Interfaces.Repositories.UserLedger;
+﻿using Microsoft.EntityFrameworkCore;
+using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Domain.Entities;
 
 namespace RenewOne.Persistence.Repositories.UserLedger
@@ -21,6 +22,21 @@ namespace RenewOne.Persistence.Repositories.UserLedger
         public void Update(PolicyPayment policyPayment)
         {
             _dbContext.PolicyPayments.Update(policyPayment);
+        }
+        public IQueryable<PolicyPayment> GetQueryable()
+        {
+            return _dbContext.PolicyPayments
+                .Include(x => x.Enquiry)
+                    .ThenInclude(x => x.VehicleEnquiryDetails)
+                        .ThenInclude(x => x.VehicleDetails)
+                .Include(x => x.SubmittedByUser);
+        }
+        public async Task<PolicyPayment?> GetByIdAsync(Guid id)
+        {
+            return await _dbContext.PolicyPayments
+                .Include(x => x.Enquiry)
+                .Include(x => x.EnquiryQuote)
+                .FirstOrDefaultAsync(x => x.Id == id);
         }
     }
 }

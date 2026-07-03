@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry;
+using RenewOne.Application.DTOs.Response.Enquiry;
 using RenewOne.Application.DTOs.Response.Enquiry.VehicleEnquiry;
 using RenewOne.Application.DTOs.Response.RC;
 using RenewOne.Application.Interfaces.Common;
@@ -363,55 +364,13 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 if (enquiry.VehicleEnquiryDetails?.MIPolicyType == PolicyType.OwnDamaged.ToString() ||
                     enquiry.VehicleEnquiryDetails?.MIPolicyType == PolicyType.Comprehensive.ToString())
                 {
-                    var documents = await _documentRepository.GetAllDocumentsByEnquiryId(request.EnquiryId);
+                    var documentValidation = await ValidateMandatoryDocumentsAsync(request.EnquiryId);
 
-                    if (documents == null)
+                    if (!documentValidation.IsSuccess)
                     {
-                        _logger.LogInformation("No documents available");
-                    }
-
-                    _logger.LogInformation("Documents: {val}", documents.Select(x => x.DocType).ToList());
-
-                    var hasRcFront = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.RC).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Front).ToString());
-
-                    var hasRcBack = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.RC).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Back).ToString());
-
-                    var hasIdFront = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.Identity).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Front).ToString());
-
-                    var hasIdBack = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.Identity).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Back).ToString());
-
-                    var hasPreviousPolicy = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.PreviousPolicy).ToString());
-
-                    var missingDocuments = new List<string>();
-
-                    if (hasRcFront == false)
-                        missingDocuments.Add("RC Front");
-
-                    if (!hasRcBack)
-                        missingDocuments.Add("RC Back");
-
-                    if (!hasIdFront)
-                        missingDocuments.Add("ID Front");
-
-                    if (!hasIdBack)
-                        missingDocuments.Add("ID Back");
-
-                    if (!hasPreviousPolicy)
-                        missingDocuments.Add("Previous Policy");
-
-                    if (missingDocuments.Any())
-                    {
-                        _logger.LogInformation($"Missing Documents: {string.Join(",", missingDocuments)}");
-                        return Result<EnquirySubmitResponse>.Failure($"Missing Documents: {string.Join(",", missingDocuments)}", 400);
+                        return Result<EnquirySubmitResponse>.Failure(
+                            documentValidation.Message,
+                            documentValidation.StatusCode);
                     }
                 }
 
@@ -435,29 +394,101 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         #region SubmitPolicyRequest
         public async Task<Result<string>> SubmitPolicyRequestAsync(SubmitPolicyRequest request, CancellationToken cancellationToken = default)
         {
-            await _unitOfWork.BeginTransactionAsync();
             try
             {
                 var accountId = _currentUser.AccountId;
 
-                var enquiryQuote = _enquiryQuoteRepository.GetEnquiryQuoteQuery()
-                    .FirstOrDefault(e => e.Id == request.QuoteId && e.EnquiryId == request.EnquiryId);
+                _logger.LogInformation(
+                    "Submitting policy request. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}, AccountId: {AccountId}",
+                    request.EnquiryId,
+                    request.QuoteId,
+                    _currentUser.AccountId);
+
+                var enquiryQuote = await _enquiryQuoteRepository
+                    .GetEnquiryQuoteQuery()
+                    .FirstOrDefaultAsync(
+                        x => x.Id == request.QuoteId &&
+                            x.EnquiryId == request.EnquiryId,
+                        cancellationToken);
 
                 if (enquiryQuote == null)
                 {
+                    _logger.LogWarning(
+                        "Selected quote not found. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}",
+                        request.EnquiryId,
+                        request.QuoteId);
                     return Result<string>.NotFound("No selected Quote for enquiry found");
+                }
+
+                var enquiry = await _enquiryRepository
+                    .GetEnquiryQueryable()
+                    .FirstOrDefaultAsync(
+                        x => x.Id == enquiryQuote.EnquiryId,
+                        cancellationToken);
+
+                if(enquiry == null)
+                {
+                    _logger.LogWarning(
+                        "Enquiry not found. EnquiryId: {EnquiryId}",
+                        request.EnquiryId);
+                    return Result<string>.NotFound("Enquiry not found.");
+                }
+
+                var documentValidation =
+                    await ValidateMandatoryDocumentsAsync(enquiry.Id);
+                if (!documentValidation.IsSuccess)
+                {
+                    _logger.LogWarning(
+                        "Document validation failed. EnquiryId: {EnquiryId}. Reason: {Reason}",
+                        enquiry.Id,
+                        documentValidation.Message);
+
+                    return Result<string>.Failure(
+                        documentValidation.Message,
+                        documentValidation.StatusCode);
+                }
+
+                // Duplicate Check
+                var hasActivePayment = await _policyPaymentRepository
+                    .GetPolicyPaymentQueryable()
+                    .AnyAsync(x =>
+                        x.EnquiryId == request.EnquiryId &&
+                        x.Status != "Rejected" &&
+                        x.Status !=  "Cancelled");
+
+                if (hasActivePayment)
+                {
+                    _logger.LogWarning(
+                        "Duplicate policy payment submission. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}",
+                        request.EnquiryId,
+                        request.QuoteId);
+
+                    return Result<string>.Failure(
+                        "A payment request has already been submitted for this quote.");
                 }
 
                 if (request.UseLedger)
                 {
-                    var ledger = await _ledgerRepository.GetByAccountIdAsync(accountId);
+                    var ledger = await _ledgerRepository
+                        .GetByAccountIdAsync(accountId);
+
                     if (ledger == null)
                     {
+                        _logger.LogWarning(
+                            "Ledger not found. AccountId: {AccountId}",
+                            accountId);
+
                         return Result<string>.NotFound("No ledger account found");
                     }
 
                     if (ledger.Balance < enquiryQuote.Premium)
                     {
+                        _logger.LogWarning(
+                            "Insufficient ledger balance. AccountId: {AccountId}, Balance: {Balance}, Premium: {Premium}",
+                            accountId,
+                            ledger.Balance,
+                            enquiryQuote.Premium);
+
                         return Result<string>.Failure("Insufficent ledger balance");
                     }
                 }
@@ -469,23 +500,44 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     }
                 }
 
-                var policyPaymentExists = await _policyPaymentRepository.GetPolicyPaymentQueryable()
-                    .AnyAsync(x => x.EnquiryId == request.EnquiryId && x.AccountId == accountId && x.EnquiryQuoteId == request.QuoteId);
+                _logger.LogInformation(
+                    "Creating policy payment. EnquiryId: {EnquiryId}",
+                    enquiry.Id);
 
-                if (policyPaymentExists)
+                // Start Transaction
+                await _unitOfWork.BeginTransactionAsync();
+
+                // Unselect previous quotes
+                var quotes = await _enquiryQuoteRepository
+                    .GetEnquiryQuoteQuery()
+                    .Where(x => x.EnquiryId == enquiry.Id)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var quote in quotes)
                 {
-                    return Result<string>.Failure(
-                        "A payment request has already been submitted for this quote.");
+                    quote.IsSelected = false;
+                    quote.SelectedByUserId = null;
+                    quote.SelectedAt = null;
                 }
 
+                // Select current quote
+                enquiryQuote.IsSelected = true;
+                enquiryQuote.SelectedAt = DateTime.UtcNow;
+                enquiryQuote.SelectedByUserId = _currentUser.UserId;
+                enquiryQuote.UpdatedAt = DateTime.UtcNow;
+
+                // Create Policy Payment
                 var policyPayment = new PolicyPayment
                 {
                     Id = Guid.NewGuid(),
-                    EnquiryId = enquiryQuote.EnquiryId,
+                    EnquiryId = enquiry.Id,
                     EnquiryQuoteId = enquiryQuote.Id,
                     AccountId = accountId,
                     Amount = enquiryQuote.Premium,
-                    PaymentMode = request.UseLedger ? "Ledger" : "BankTransfer",
+                    PaymentMode = request.UseLedger
+                        ? "Ledger"
+                        : "BankTransfer",
+                    TransactionId = request.TransactionId,
                     Status = "Pending",
                     Remarks = request.Remarks,
                     SubmittedByUserId = _currentUser.UserId,
@@ -496,26 +548,143 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 await _policyPaymentRepository.AddAsync(policyPayment);
 
-                enquiryQuote.IsSelected = true;
-                enquiryQuote.UpdatedAt = DateTime.UtcNow;
-                enquiryQuote.SelectedByUserId = _currentUser.UserId;
+                _logger.LogInformation(
+                    "Policy payment created successfully. PolicyPaymentId: {PolicyPaymentId}",
+                    policyPayment.Id);
 
-                var enquiry = _enquiryRepository.GetEnquiryQueryable()
-                    .FirstOrDefault(x => x.Id == enquiryQuote.EnquiryId);
+                enquiry.Status =
+                    EnquiryStatus.PaymentVerificationPending.ToString();
 
-                enquiry.Status = EnquiryStatus.PaymentVerificationPending.ToString();
                 enquiry.UpdatedAt = DateTime.UtcNow;
+                enquiry.SelectedQuoteId = enquiryQuote.Id;
 
                 _enquiryRepository.Update(enquiry);
 
                 await _unitOfWork.CommitTransactionAsync();
-                return Result<string>.Success(policyPayment.Id.ToString(), "Policy Submitted successfully");
+
+                _logger.LogInformation(
+                    "Policy submitted successfully. EnquiryId: {EnquiryId}, PolicyPaymentId: {PolicyPaymentId}",
+                    enquiry.Id,
+                    policyPayment.Id);
+
+                return Result<string>.Success(
+                    policyPayment.Id.ToString(),
+                    "Policy submitted successfully.");
 
             }
             catch (Exception ex)
             {
-                return Result<string>.Failure($"Error submitting policy request: {ex}", 500);
+                await _unitOfWork.RollbackTransactionAsync();
+
+                _logger.LogError(
+                    ex,
+                    "Error while submitting policy request. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}",
+                    request.EnquiryId,
+                    request.QuoteId);
+
+                return Result<string>.Failure(
+                    "Error submitting policy request.",
+                    500);
             }
+        }
+        #endregion
+
+        #region MandatoryDocuments
+        private async Task<Result<bool>> ValidateMandatoryDocumentsAsync(Guid enquiryId)
+        {
+            var documents = await _documentRepository.GetAllDocumentsByEnquiryId(enquiryId);
+
+            if (documents == null || !documents.Any())
+            {
+                return Result<bool>.Failure("No documents uploaded.", 400);
+            }
+
+            var requiredDocuments = new[]
+            {
+                new
+                {
+                    Name = "RC Front",
+                    Exists = documents.Any(x =>
+                        x.DocType == ((int)DocumentType.RC).ToString() &&
+                        x.DocSide == ((int)DocumentSide.Front).ToString())
+                },
+                new
+                {
+                    Name = "RC Back",
+                    Exists = documents.Any(x =>
+                        x.DocType == ((int)DocumentType.RC).ToString() &&
+                        x.DocSide == ((int)DocumentSide.Back).ToString())
+                },
+                new
+                {
+                    Name = "ID Front",
+                    Exists = documents.Any(x =>
+                        x.DocType == ((int)DocumentType.Identity).ToString() &&
+                        x.DocSide == ((int)DocumentSide.Front).ToString())
+                },
+                new
+                {
+                    Name = "ID Back",
+                    Exists = documents.Any(x =>
+                        x.DocType == ((int)DocumentType.Identity).ToString() &&
+                        x.DocSide == ((int)DocumentSide.Back).ToString())
+                },
+                new
+                {
+                    Name = "Previous Policy",
+                    Exists = documents.Any(x =>
+                        x.DocType == ((int)DocumentType.PreviousPolicy).ToString())
+                }
+            };
+
+            var missingDocuments = requiredDocuments
+                .Where(x => !x.Exists)
+                .Select(x => x.Name)
+                .ToList();
+
+            if (missingDocuments.Any())
+            {
+                var message = $"Missing Documents: {string.Join(", ", missingDocuments)}";
+
+                _logger.LogInformation(message);
+
+                return Result<bool>.Failure(message, 400);
+            }
+
+            return Result<bool>.Success(true);
+        }
+        #endregion
+
+        #region 
+        public async Task<Result<PaymentVerificationResponse>> GetPaymentDetails(Guid enquiryId)
+        {
+            var payment = await _policyPaymentRepository
+                .GetQueryable()
+                .FirstOrDefaultAsync(x => x.EnquiryId == enquiryId);
+
+            if(payment == null)
+            {
+                _logger.LogInformation("No payment record found for EnquiryId: {enquiryId}",enquiryId);
+                return Result<PaymentVerificationResponse>.NotFound("No payment record found");
+            }
+
+            var response = new PaymentVerificationResponse
+            {
+                CustomerName = payment.Enquiry.CustomerName,
+                CustomerNumber = payment.Enquiry.CustomerNumber,
+                VehicleNumber = payment.Enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber,
+                PaymentMode = payment.PaymentMode,
+                PaymentStatus = payment.Status,
+                Premium = payment.Amount,
+                Remarks = payment.Remarks,
+                EnquiryId = payment.EnquiryId,
+                PolicyPaymentId = payment.Id,
+                SubmittedAt = payment.SubmittedAt,
+                SubmittedBy = payment.SubmittedByUser.FullName,
+                TransactionId = payment.TransactionId
+            };
+
+            return Result<PaymentVerificationResponse>.Success(response, "Payment details fetched successfully");
         }
         #endregion
     }

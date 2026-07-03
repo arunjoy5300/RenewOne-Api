@@ -6,7 +6,7 @@
         Submitted = 2,
         Quoted = 3,
         PaymentVerificationPending = 4,
-        StartQuote = 5,
+        PolicyInProgress = 5,
         PolicyIssued = 6
     }
 }

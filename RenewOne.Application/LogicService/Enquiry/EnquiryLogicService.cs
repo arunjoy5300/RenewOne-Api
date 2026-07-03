@@ -568,7 +568,7 @@ namespace RenewOne.Application.LogicService.Enquiry
                 .GetQueryable()
                 .Where(e =>
                     (e.Status == EnquiryStatus.Submitted.ToString() ||
-                     e.Status == EnquiryStatus.StartQuote.ToString()) &&
+                     e.Status == EnquiryStatus.PolicyInProgress.ToString()) &&
                     e.AssignedEmployeeId == null &&
                     allocations.Any(a =>
                         a.InsuranceTypeId == e.InsuranceTypeId &&
@@ -611,7 +611,7 @@ namespace RenewOne.Application.LogicService.Enquiry
 
             var pagedResult = await query
                 .Where(x => x.Status == EnquiryStatus.Submitted.ToString() ||
-                    x.Status == EnquiryStatus.StartQuote.ToString())
+                    x.Status == EnquiryStatus.PolicyInProgress.ToString())
                 .Select(e => new CommonQueueResponse
                 {
                     EnquiryId = e.Id,

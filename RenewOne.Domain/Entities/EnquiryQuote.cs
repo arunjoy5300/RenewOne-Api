@@ -14,7 +14,8 @@ namespace RenewOne.Domain.Entities
         public bool IsManualQuote { get; set; }
         public string? Remarks { get; set; }
         public bool IsSelected { get; set; }
-        public Guid SelectedByUserId { get; set; }
+        public Guid? SelectedByUserId { get; set; }
+        public DateTime? SelectedAt { get; set; }
         public virtual Enquiry? Enquiry { get; set; }
         public virtual InsuranceCompany? InsuranceCompany { get; set; }
         public virtual ICollection<PolicyPayment> PolicyPayments { get; set; }
