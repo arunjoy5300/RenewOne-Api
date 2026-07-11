@@ -142,7 +142,8 @@ namespace RenewOne.Application.LogicService.Accounts
                 {
                     Id= Guid.NewGuid(),
                     AccountId = newAccount.Id,
-                    Balance = 0,
+                    CreditLimit = 0,
+                    AvailableBalance = 0,
                     IsActive = true
                 };
 

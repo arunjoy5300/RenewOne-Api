@@ -1,13 +1,15 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.PolicyPayment;
+using RenewOne.Application.DTOs.Response.QRManaging;
 using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.EnquiryQuote;
+using RenewOne.Application.Interfaces.Repositories.AdminEntry.QRManaging;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
-using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
 
 namespace RenewOne.Application.LogicService.PolicyPayments
@@ -20,13 +22,15 @@ namespace RenewOne.Application.LogicService.PolicyPayments
         private readonly ICurrentUserService _currentUserService;
         private readonly IEnquiryRepository _enquiryRepository;
         private readonly IEnquiryQuoteRepository _enquiryQuoteRepository;
+        private readonly IQRMappingRepository _qrMappingRepository;
         public PolicyPaymentLogicService(
             IPolicyPaymentRepository policyPaymentRepository,
             ILogger<PolicyPaymentLogicService> logger,
             IUnitOfWork unitOfWork,
             ICurrentUserService currentUserService,
             IEnquiryRepository enquiryRepository,
-            IEnquiryQuoteRepository enquiryQuoteRepository)
+            IEnquiryQuoteRepository enquiryQuoteRepository,
+            IQRMappingRepository qrMappingRepository)
         {
             _policyPaymentRepository = policyPaymentRepository;
             _logger = logger;
@@ -34,6 +38,7 @@ namespace RenewOne.Application.LogicService.PolicyPayments
             _currentUserService = currentUserService;
             _enquiryRepository = enquiryRepository;
             _enquiryQuoteRepository = enquiryQuoteRepository;
+            _qrMappingRepository = qrMappingRepository;
         }
 
         public async Task<Result<string>> ApprovePolicyPaymentAsync(ApprovePolicyPaymentRequest request, CancellationToken cancellationToken = default)
@@ -201,6 +206,94 @@ namespace RenewOne.Application.LogicService.PolicyPayments
 
                 return Result<string>.Failure(
                     "Error while rejecting policy payment.",
+                    500);
+            }
+        }
+
+        public async Task<Result<QRSelectionResponse>> GetQRSelectionAsync(
+        Guid enquiryId,
+        CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Fetching QR details for EnquiryId: {EnquiryId}",
+                    enquiryId);
+
+                var enquiry = await _enquiryRepository
+                    .GetEnquiryQueryable()
+                    .Include(x => x.VehicleEnquiryDetails)
+                    .FirstOrDefaultAsync(x => x.Id == enquiryId, cancellationToken);
+
+                if (enquiry == null)
+                {
+                    _logger.LogWarning(
+                        "Enquiry not found. EnquiryId: {EnquiryId}",
+                        enquiryId);
+
+                    return Result<QRSelectionResponse>.NotFound(
+                        "Enquiry not found.");
+                }
+
+                Guid insuranceTypeId = enquiry.InsuranceTypeId;
+
+                Guid? vehicleTypeId = enquiry.VehicleEnquiryDetails?.VehicleTypeId;
+
+                var mapping = await _qrMappingRepository
+                    .GetQueryable()
+                    .Include(x => x.QRMaster)
+                        .ThenInclude(x => x.BankAccount)
+                    .FirstOrDefaultAsync(x =>
+                            x.IsActive &&
+                            x.InsuranceTypeId == insuranceTypeId &&
+                            x.VehicleTypeId == vehicleTypeId &&
+                            x.QRMaster.IsActive &&
+                            x.QRMaster.BankAccount.IsActive,
+                        cancellationToken);
+
+                if (mapping == null)
+                {
+                    _logger.LogWarning(
+                        "QR Mapping not found for EnquiryId: {EnquiryId}",
+                        enquiryId);
+
+                    return Result<QRSelectionResponse>.NotFound(
+                        "QR Mapping not found.");
+                }
+
+                var bank = mapping.QRMaster.BankAccount;
+
+                var response = new QRSelectionResponse
+                {
+                    QRMasterId = mapping.QRMasterId,
+                    QRName = mapping.QRMaster.UpiName,
+
+                    BankAccountId = bank.Id,
+                    BankName = bank.BankName,
+                    BranchName = bank.BranchName,
+                    AccountHolderName = bank.AccountHolderName,
+                    AccountNumber = bank.AccountNumber,
+                    IFSCCode = bank.IFSCCode,
+                    UpiId = bank.UpiId
+                };
+
+                _logger.LogInformation(
+                    "QR details fetched successfully for EnquiryId: {EnquiryId}",
+                    enquiryId);
+
+                return Result<QRSelectionResponse>.Success(
+                    response,
+                    "QR details fetched successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error fetching QR details for EnquiryId: {EnquiryId}",
+                    enquiryId);
+
+                return Result<QRSelectionResponse>.Failure(
+                    "An error occurred while fetching QR details.",
                     500);
             }
         }

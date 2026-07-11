@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RenewOne.Application.DTOs.Request.Enquiry;
 using RenewOne.Application.Filters.Enquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
 
@@ -7,6 +8,7 @@ namespace RenewOne.API.Controllers.Enquiry
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class EnquiryController : ControllerBase
     {
         private readonly IEnquiryLogicService _enquiryLogicService;
@@ -90,6 +92,34 @@ namespace RenewOne.API.Controllers.Enquiry
         public async Task<IActionResult> GetMyCommonQueue([FromQuery] CommonQueueFilter filter)
         {
             var result = await _enquiryLogicService.GetMyCommonQueueAsync(filter);
+
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpPost("{enquiryId:guid}/assign")]
+        public async Task<IActionResult> Assign(
+        Guid enquiryId,
+        Guid employeeId,
+        string remarks,
+        CancellationToken cancellationToken)
+        {
+            var result = await _enquiryLogicService.AssignAsync(
+                enquiryId,
+                employeeId,
+                remarks,
+                cancellationToken);
+
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpGet("{enquiryId:guid}/assignable-employees")]
+        public async Task<IActionResult> GetAssignableEmployees(
+        Guid enquiryId,
+        CancellationToken cancellationToken)
+        {
+            var result = await _enquiryLogicService.GetAssignableEmployeesAsync(
+                enquiryId,
+                cancellationToken);
 
             return StatusCode(result.StatusCode, result);
         }

@@ -6,9 +6,9 @@ namespace RenewOne.Domain.Entities
     {
         public Guid EnquiryId { get; set; }
         public Guid ChangedByUserId { get; set; }
-        public int FromStatus { get; set; }
-        public int ToStatus { get; set; }
-        public Guid FromEmployeeId { get; set; }
+        public string? FromStatus { get; set; }
+        public string ToStatus { get; set; }
+        public Guid? FromEmployeeId { get; set; }
         public Guid ToEmployeeId { get; set; }
         public string? Remarks { get; set; }
         public virtual Enquiry? Enquiry { get; set; }

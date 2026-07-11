@@ -15,8 +15,6 @@ namespace RenewOne.Application.Filters.Enquiry
 
         public EnquiryStatus? EnquiryStatus { get; set; }
 
-        public Guid? AgentId { get; set; }
-
         public DateOnly? FromDate { get; set; }
 
         public DateOnly? ToDate { get; set; }

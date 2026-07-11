@@ -4,21 +4,30 @@ using RenewOne.Application.Common.Models;
 using RenewOne.Application.Common.Pagination;
 using RenewOne.Application.DTOs.Response.Enquiry;
 using RenewOne.Application.Filters.Enquiry;
+using RenewOne.Application.Hubs.RenewOne.Application.Hubs;
+using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
+using RenewOne.Application.Interfaces.Repositories.AssignmentHistories;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Users;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
+using RenewOne.Application.Interfaces.Services.SignalR;
+using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
 
 namespace RenewOne.Application.LogicService.Enquiry
 {
-    public class EnquiryLogicService: IEnquiryLogicService
+    public class EnquiryLogicService : IEnquiryLogicService
     {
         #region DI
         private readonly IEnquiryRepository _enquiryRepository;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<EnquiryLogicService> _logger;
         private readonly IUserTaskAllocationRepository _userTaskAllocationRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IAssignmentHistoryRepository _assignmentHistoryRepository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly INotificationService _notificationService;
         #endregion
 
         #region Constructor
@@ -26,12 +35,20 @@ namespace RenewOne.Application.LogicService.Enquiry
             IEnquiryRepository enquiryRepository,
             ICurrentUserService currentUser,
             ILogger<EnquiryLogicService> logger,
-            IUserTaskAllocationRepository userTaskAllocationRepository)
+            IUserTaskAllocationRepository userTaskAllocationRepository,
+            IUserRepository userRepository,
+            IAssignmentHistoryRepository assignmentHistoryRepository,
+            IUnitOfWork unitOfWork,
+            INotificationService notificationService)
         {
             _enquiryRepository = enquiryRepository;
             _currentUser = currentUser;
             _logger = logger;
             _userTaskAllocationRepository = userTaskAllocationRepository;
+            _userRepository = userRepository;
+            _assignmentHistoryRepository = assignmentHistoryRepository;
+            _unitOfWork = unitOfWork;
+            _notificationService = notificationService;
         }
         #endregion
 
@@ -89,10 +106,12 @@ namespace RenewOne.Application.LogicService.Enquiry
                         TotalEnquiries = g.Count(),
                         Created = g.Count(x => x.Status == EnquiryStatus.Created.ToString()),
                         PendingAssignment = g.Count(x => x.Status == EnquiryStatus.Submitted.ToString()),
-                        Quoted = g.Count(x => x.Status == EnquiryStatus.Quoted.ToString()),
+                        Quoted = g.Count(x => x.Status == EnquiryStatus.Quoted.ToString() || x.Status == EnquiryStatus.PolicyInProgress.ToString()),
                         PolicyIssued = g.Count(x => x.Status == EnquiryStatus.PolicyIssued.ToString())
                     })
                     .FirstOrDefaultAsync() ?? new EnquiryDashboardResponse();
+
+                _logger.LogInformation("Dashboard count fetched successfully for user {userId} from IP Address: {ip} : response {@response}", userId, _currentUser.IpAddress, response);
 
                 return Result<EnquiryDashboardResponse>.Success(response, "Dashboard count fetched successfully");
             }
@@ -157,15 +176,17 @@ namespace RenewOne.Application.LogicService.Enquiry
                         TotalEnquiries = g.Count(),
                         Created = g.Count(x => x.Status == EnquiryStatus.Created.ToString()),
                         PendingAssignment = g.Count(x => x.Status == EnquiryStatus.Submitted.ToString()),
-                        Quoted = g.Count(x => x.Status == EnquiryStatus.Quoted.ToString()),
+                        Quoted = g.Count(x => x.Status == EnquiryStatus.Quoted.ToString() || x.Status == EnquiryStatus.PolicyInProgress.ToString()),
                         PolicyIssued = g.Count(x => x.Status == EnquiryStatus.PolicyIssued.ToString())
                     })
                     .FirstOrDefaultAsync() ?? new EnquiryDashboardResponse();
 
+                _logger.LogInformation("Dashboard count fetched successfully for user {userId} from IP Address: {ip} : response {@response}", _currentUser.UserId, _currentUser.IpAddress, response);
                 return Result<EnquiryDashboardResponse>.Success(response, "Dashboard count fetched successfully");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "An error occurred while fetching dashboard count for user {userId} from IP Address: {ip}", _currentUser.UserId, _currentUser.IpAddress);
                 return Result<EnquiryDashboardResponse>
                     .Failure("An error occurred while fetching dashboard count", 500);
             }
@@ -177,6 +198,8 @@ namespace RenewOne.Application.LogicService.Enquiry
         {
             try
             {
+                _logger.LogInformation("Fetching enquiries with filter: {@filter} from IP Address: {ip}", filter, _currentUser.IpAddress);
+
                 var accountId = _currentUser.AccountId;
 
                 var query = _enquiryRepository
@@ -212,12 +235,6 @@ namespace RenewOne.Application.LogicService.Enquiry
                 {
                     query = query.Where(x =>
                         x.Status == filter.EnquiryStatus.Value.ToString());
-                }
-
-                if (filter.AgentId.HasValue)
-                {
-                    query = query.Where(x =>
-                        x.TenantId == filter.AgentId);
                 }
 
                 if (filter.FromDate.HasValue)
@@ -267,11 +284,12 @@ namespace RenewOne.Application.LogicService.Enquiry
                         ? x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
                         : null,
 
-                    CreatedByName = x.CreatedByUserId != null? 
+                    CreatedByName = x.CreatedByUserId != null ?
                           x.CreatedByUser.FullName
                         : null,
 
-                    CreatedAt = x.CreatedAt
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt
                 });
 
                 var pagedResult = await response.ToPagedResponseAsync(
@@ -282,10 +300,10 @@ namespace RenewOne.Application.LogicService.Enquiry
                     .Success(pagedResult);
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return Result<PagedResponse<EnquiryListResponse>>
-                    .Failure("An error occurred while fetching enquiries",500);
+                    .Failure("An error occurred while fetching enquiries", 500);
             }
         }
         #endregion
@@ -396,7 +414,7 @@ namespace RenewOne.Application.LogicService.Enquiry
                 return Result<PagedResponse<EnquiryListResponse>>
                     .Success(pagedResult);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError("Error while fetching my enquiries {ex}", ex);
                 return Result<PagedResponse<EnquiryListResponse>>
@@ -480,6 +498,7 @@ namespace RenewOne.Application.LogicService.Enquiry
         }
         #endregion
 
+        #region GetCommonQueue
         public async Task<Result<PagedResponse<CommonQueueResponse>>> GetCommonQueueAsync(CommonQueueFilter filter)
         {
             var query = _enquiryRepository.GetCommonQueue();
@@ -555,7 +574,9 @@ namespace RenewOne.Application.LogicService.Enquiry
                 pagedResult,
                 "Enquiries fetched successfully");
         }
+        #endregion
 
+        #region GetMyCommonQueueAsync
         public async Task<Result<PagedResponse<CommonQueueResponse>>> GetMyCommonQueueAsync(CommonQueueFilter filter)
         {
             var userId = _currentUser.UserId;
@@ -634,6 +655,214 @@ namespace RenewOne.Application.LogicService.Enquiry
             return Result<PagedResponse<CommonQueueResponse>>.Success(
                 pagedResult,
                 "Common queue fetched successfully.");
+        }
+        #endregion
+
+        #region AssignEnquiry
+        public async Task<Result<string>> AssignAsync(
+        Guid enquiryId,
+        Guid employeeId,
+        string? remarks,
+        CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Assigning enquiry {EnquiryId} to employee {EmployeeId}",
+                    enquiryId,
+                    employeeId);
+
+                var enquiry = await _enquiryRepository
+                    .GetEnquiryQueryable()
+                    .FirstOrDefaultAsync(x => x.Id == enquiryId, cancellationToken);
+
+                if (enquiry == null)
+                {
+                    _logger.LogWarning(
+                        "Enquiry not found. EnquiryId: {EnquiryId}",
+                        enquiryId);
+
+                    return Result<string>.NotFound("Enquiry not found.");
+                }
+
+                if (enquiry.Status != nameof(EnquiryStatus.Submitted) && enquiry.Status != nameof(EnquiryStatus.PaymentVerificationPending))
+                {
+                    _logger.LogWarning(
+                        "Only Submitted or PaymentVerificationPending enquiries can be assigned. Current Status: {Status}",
+                        enquiry.Status);
+
+                    return Result<string>.Failure(
+                        "Only Submitted or PaymentVerificationPending enquiries can be assigned.");
+                }
+
+                var employee = await _userRepository.GetByIdAsync(employeeId);
+
+                if (employee == null)
+                {
+                    _logger.LogWarning(
+                        "Employee not found. EmployeeId: {EmployeeId}",
+                        employeeId);
+
+                    return Result<string>.NotFound("Employee not found.");
+                }
+
+                var hasPermission = await _userTaskAllocationRepository
+                    .GetQueryable()
+                    .AnyAsync(x =>
+                        x.UserId == employeeId &&
+                        x.InsuranceTypeId == enquiry.InsuranceTypeId,
+                        cancellationToken);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning(
+                        "Employee {EmployeeId} is not authorized for InsuranceType {InsuranceTypeId}",
+                        employeeId,
+                        enquiry.InsuranceTypeId);
+
+                    return Result<string>.Failure(
+                        "Selected employee is not authorized for this insurance type.");
+                }
+
+                await _unitOfWork.BeginTransactionAsync();
+
+                string nextStatus = enquiry.Status switch
+                {
+                    nameof(EnquiryStatus.Submitted) => nameof(EnquiryStatus.QuoteInProgress),
+
+                    nameof(EnquiryStatus.PaymentVerificationPending) => nameof(EnquiryStatus.PolicyInProgress),
+
+                    _ => enquiry.Status
+                };
+
+                var assignmentHistory = new AssignmentHistory
+                {
+                    Id = Guid.NewGuid(),
+
+                    EnquiryId = enquiry.Id,
+
+                    ChangedByUserId = _currentUser.UserId,
+
+                    FromStatus = enquiry.Status,
+
+                    ToStatus = nextStatus,
+
+                    FromEmployeeId = enquiry.AssignedEmployeeId,
+
+                    ToEmployeeId = employeeId,
+
+                    Remarks = remarks,
+
+                    CreatedAt = DateTime.UtcNow,
+
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                enquiry.AssignedEmployeeId = employeeId;
+                enquiry.Status = nextStatus;
+                enquiry.UpdatedAt = DateTime.UtcNow;
+
+                _enquiryRepository.Update(enquiry);
+
+                await _assignmentHistoryRepository.AddAsync(assignmentHistory);
+
+                await _unitOfWork.SaveChangesAsync();
+
+                await _unitOfWork.CommitTransactionAsync();
+
+                _logger.LogInformation(
+                    "Enquiry {EnquiryId} assigned successfully to {EmployeeId}",
+                    enquiryId,
+                    employeeId);
+
+                // Notify assigned employee
+                await _notificationService.SendToUsersAsync(
+                    new NotificationMessage
+                    {
+                        Event = "EnquiryAssigned",
+                        Title = "New Enquiry Assigned",
+                        Message = $"Enquiry #{enquiry.Id} has been assigned to you.",
+                        ReferenceId = enquiry.Id,
+                        Status = enquiry.Status
+                    },
+                    employeeId);
+
+                return Result<string>.Success(
+                    enquiry.Id.ToString(),
+                    "Enquiry assigned successfully.");
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+
+                _logger.LogError(
+                    ex,
+                    "Error assigning enquiry {EnquiryId}",
+                    enquiryId);
+
+                return Result<string>.Failure(
+                    "An error occurred while assigning the enquiry.",
+                    500);
+            }
+        }
+        #endregion
+
+        public async Task<Result<List<AssignableEmployeeResponse>>> GetAssignableEmployeesAsync(
+        Guid enquiryId,
+        CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Fetching assignable employees for enquiry {EnquiryId}",
+                    enquiryId);
+
+                var enquiry = await _enquiryRepository
+                    .GetEnquiryQueryable()
+                    .FirstOrDefaultAsync(x => x.Id == enquiryId, cancellationToken);
+
+                if (enquiry == null)
+                {
+                    return Result<List<AssignableEmployeeResponse>>
+                        .NotFound("Enquiry not found.");
+                }
+
+                var employees = await _userTaskAllocationRepository
+                    .GetQueryable()
+                    .Where(x =>
+                        x.InsuranceTypeId == enquiry.InsuranceTypeId &&
+                        x.IsActive)
+                    .Select(x => x.User)
+                    .Distinct()
+                    .OrderBy(x => x.FullName)
+                    .Select(x => new AssignableEmployeeResponse
+                    {
+                        UserId = x.Id,
+                        FullName = x.FullName,
+                        Email = x.Email,
+                        PhoneNumber = x.PhoneNumber,
+                        IsCurrentlyAssigned = enquiry.AssignedEmployeeId == x.Id
+                    })
+                    .ToListAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "{Count} assignable employees found.",
+                    employees.Count);
+
+                return Result<List<AssignableEmployeeResponse>>
+                    .Success(employees);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error fetching assignable employees.");
+
+                return Result<List<AssignableEmployeeResponse>>
+                    .Failure(
+                        "An error occurred while fetching assignable employees.",
+                        500);
+            }
         }
     }
 }

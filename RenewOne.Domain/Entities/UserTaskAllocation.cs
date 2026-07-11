@@ -8,6 +8,7 @@ namespace RenewOne.Domain.Entities
         public Guid InsuranceTypeId { get; set; } 
         public Guid? VehicleTypeId { get; set; }
         public bool CanAssign { get; set; } = true;
+        public bool IsActive { get; set; } = true;
         public virtual User User { get; set; }
         public virtual InsuranceType InsuranceType { get; set; }
         public virtual VehicleType? VehicleType { get; set; }

@@ -31,5 +31,17 @@ namespace RenewOne.API.Controllers.PolicyPayment
 
             return StatusCode(result.StatusCode, result);
         }
+
+        [HttpGet("{enquiryId:guid}/qr")]
+        public async Task<IActionResult> GetQRDetails(
+        Guid enquiryId,
+        CancellationToken cancellationToken)
+        {
+            var result = await _policyPaymentLogicService.GetQRSelectionAsync(
+                enquiryId,
+                cancellationToken);
+
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

@@ -38,6 +38,8 @@ namespace RenewOne.Persistence
         public DbSet<PolicyPayment> PolicyPayments { get; set; }
         public DbSet<QRMapping> QRMappings { get; set; }
         public DbSet<QRMaster> QRMasters { get; set; }
+        public DbSet<BankAccount> BankAccount { get; set; }
+        public DbSet<BankTransaction> BankTransactions { get; set; }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

@@ -4,9 +4,10 @@
     {
         Created = 1,
         Submitted = 2,
-        Quoted = 3,
-        PaymentVerificationPending = 4,
-        PolicyInProgress = 5,
-        PolicyIssued = 6
+        QuoteInProgress = 3,
+        Quoted = 4,
+        PaymentVerificationPending = 5,
+        PolicyInProgress = 6,
+        PolicyIssued = 7
     }
 }
