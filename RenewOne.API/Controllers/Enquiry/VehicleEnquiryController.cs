@@ -18,7 +18,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpPost("create-vehicle-enquiry")]
-        [Authorize(Roles = "Agent,Staff")]
+        [Authorize()]
         public async Task<IActionResult> CreateVehicleEnquiry([FromBody] CreateVehicleEnquiry request)
         {
             // Extract tenant and user information from claims

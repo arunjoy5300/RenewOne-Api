@@ -290,9 +290,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
         #region SubmitVehicleEnquiryAsync
         public async Task<Result<EnquirySubmitResponse>> SubmitVehicleEnquiryAsync(
-            SubmitVehicleEnquiry request,
-            Guid accountId,
-            CancellationToken cancellationToken = default)
+    SubmitVehicleEnquiry request,
+    Guid accountId,
+    CancellationToken cancellationToken = default)
         {
             bool hasInstantQuotes = false;
 
@@ -332,6 +332,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         "Only created enquiries can be submitted.");
                 }
 
+                // Third Party Policy
                 if (enquiry.VehicleEnquiryDetails?.MIPolicyType ==
                     PolicyType.ThirdParty.ToString())
                 {
@@ -353,41 +354,48 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                             "Invalid Cubic Capacity");
                     }
 
-                    var pricingMasters =
-                        await _pricingMasterRepository.GetTPPricing(
-                            enquiry.VehicleEnquiryDetails.VehicleTypeId,
-                            account.AgentClassId,
-                            (int)ccValue);
+                    var pricingMasters = await _pricingMasterRepository.GetTPPricing(
+                        enquiry.VehicleEnquiryDetails.VehicleTypeId,
+                        account.AgentClassId,
+                        (int)ccValue);
 
-                    if (!pricingMasters.Any())
+                    if (pricingMasters.Any())
                     {
-                        _logger.LogWarning(
-                            "No pricing available. EnquiryId: {EnquiryId}",
+                        foreach (var pricing in pricingMasters)
+                        {
+                            await _enquiryQuoteRepository.AddEnquiryQuoteAsync(
+                                new EnquiryQuote
+                                {
+                                    Id = Guid.NewGuid(),
+                                    EnquiryId = enquiry.Id,
+                                    InsuranceCompanyId = pricing.InsuranceCompanyId,
+                                    Premium = pricing.TotalPremium,
+                                    CompanyPayable = pricing.CompanyPayable,
+                                    AgentPoints = pricing.AgentPoints,
+                                    AdminProfit = pricing.AdminProfit,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                });
+                        }
+
+                        hasInstantQuotes = true;
+                        enquiry.Status = EnquiryStatus.Quoted.ToString();
+
+                        _logger.LogInformation(
+                            "Instant quotes generated. EnquiryId: {EnquiryId}",
+                            enquiry.Id);
+                    }
+                    else
+                    {
+                        hasInstantQuotes = false;
+                        enquiry.Status = EnquiryStatus.Submitted.ToString();
+
+                        _logger.LogInformation(
+                            "No pricing found. Enquiry submitted for manual quotation. EnquiryId: {EnquiryId}",
                             enquiry.Id);
                     }
 
-                    foreach (var pricing in pricingMasters)
-                    {
-                        await _enquiryQuoteRepository.AddEnquiryQuoteAsync(
-                            new EnquiryQuote
-                            {
-                                Id = Guid.NewGuid(),
-                                EnquiryId = enquiry.Id,
-                                InsuranceCompanyId = pricing.InsuranceCompanyId,
-                                Premium = pricing.TotalPremium,
-                                CompanyPayable = pricing.CompanyPayable,
-                                AgentPoints = pricing.AgentPoints,
-                                AdminProfit = pricing.AdminProfit,
-                                CreatedAt = DateTime.UtcNow,
-                                UpdatedAt = DateTime.UtcNow
-                            });
-                    }
-
-                    hasInstantQuotes = pricingMasters.Any();
-
-                    enquiry.Status = EnquiryStatus.Quoted.ToString();
                     enquiry.UpdatedAt = DateTime.UtcNow;
-
                     _enquiryRepository.Update(enquiry);
 
                     await _unitOfWork.CommitTransactionAsync();
@@ -403,10 +411,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         "AdminEmployee",
                         "Supervisor");
 
-                    _logger.LogInformation(
-                        "Instant quotes generated successfully. EnquiryId: {EnquiryId}",
-                        enquiry.Id);
-
                     return Result<EnquirySubmitResponse>.Success(
                         new EnquirySubmitResponse
                         {
@@ -414,16 +418,19 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                             Status = enquiry.Status,
                             RedirectToQuotes = hasInstantQuotes
                         },
-                        "Quotes generated successfully.");
+                        hasInstantQuotes
+                            ? "Quotes generated successfully."
+                            : "Enquiry submitted successfully.");
                 }
 
+                // Own Damage / Comprehensive
                 if (enquiry.VehicleEnquiryDetails?.MIPolicyType ==
                         PolicyType.OwnDamaged.ToString() ||
                     enquiry.VehicleEnquiryDetails?.MIPolicyType ==
                         PolicyType.Comprehensive.ToString())
                 {
-                    var validation =
-                        await ValidateMandatoryDocumentsAsync(request.EnquiryId);
+                    var validation = await ValidateMandatoryDocumentsAsync(
+                        request.EnquiryId);
 
                     if (!validation.IsSuccess)
                     {
@@ -442,6 +449,17 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 await _unitOfWork.CommitTransactionAsync();
 
+                await _notificationService.SendToRolesAsync(
+                    new NotificationMessage
+                    {
+                        Event = "EnquirySubmitted",
+                        Title = "Enquiry Submitted",
+                        Message = $"A new enquiry has been submitted. EnquiryId: {enquiry.Id}"
+                    },
+                    "SuperAdmin",
+                    "AdminEmployee",
+                    "Supervisor");
+
                 _logger.LogInformation(
                     "Enquiry submitted successfully. EnquiryId: {EnquiryId}",
                     enquiry.Id);
@@ -453,7 +471,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         Status = enquiry.Status,
                         RedirectToQuotes = false
                     },
-                    "Enquiry submitted successfully");
+                    "Enquiry submitted successfully.");
             }
             catch (Exception ex)
             {
@@ -697,35 +715,35 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     Name = "RC Front",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.RC).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Front).ToString())
+                        x.DocType == (DocumentType.RC).ToString() &&
+                        x.DocSide == (DocumentSide.Front).ToString())
                 },
                 new
                 {
                     Name = "RC Back",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.RC).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Back).ToString())
+                        x.DocType == (DocumentType.RC).ToString() &&
+                        x.DocSide == (DocumentSide.Back).ToString())
                 },
                 new
                 {
                     Name = "ID Front",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.Identity).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Front).ToString())
+                        x.DocType == (DocumentType.Identity).ToString() &&
+                        x.DocSide == (DocumentSide.Front).ToString())
                 },
                 new
                 {
                     Name = "ID Back",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.Identity).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Back).ToString())
+                        x.DocType == (DocumentType.Identity).ToString() &&
+                        x.DocSide == (DocumentSide.Back).ToString())
                 },
                 new
                 {
                     Name = "Previous Policy",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.PreviousPolicy).ToString())
+                        x.DocType == (DocumentType.PreviousPolicy).ToString())
                 }
             };
 

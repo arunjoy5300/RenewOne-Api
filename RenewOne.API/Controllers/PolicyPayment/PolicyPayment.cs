@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using RenewOne.Application.DTOs.Request.PolicyPayment;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
@@ -7,6 +8,7 @@ namespace RenewOne.API.Controllers.PolicyPayment
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
     public class PolicyPayment : ControllerBase
     {
         private readonly IPolicyPaymentLogicService _policyPaymentLogicService;
