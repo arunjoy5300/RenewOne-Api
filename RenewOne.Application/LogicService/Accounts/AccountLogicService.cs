@@ -1,4 +1,6 @@
-﻿using RenewOne.Application.Common.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.Account;
 using RenewOne.Application.DTOs.Response.Account;
 using RenewOne.Application.Filters.Account;
@@ -22,6 +24,7 @@ namespace RenewOne.Application.LogicService.Accounts
         private readonly IWalletRepository _walletRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILedgerRepository _ledgerRepository;
+        private readonly ILogger<IAccountLogicService> _logger;
         #endregion
 
         #region Constructor
@@ -31,7 +34,8 @@ namespace RenewOne.Application.LogicService.Accounts
             IAgentClassRepository agentClassRepository,
             IWalletRepository walletRepository,
             IUnitOfWork unitOfWork,
-            ILedgerRepository ledgerRepository)
+            ILedgerRepository ledgerRepository,
+            ILogger<IAccountLogicService> logger)
         {
             _userRepository = userRepository;
             _accountRepository = accountRepository;
@@ -39,6 +43,7 @@ namespace RenewOne.Application.LogicService.Accounts
             _walletRepository = walletRepository;
             _unitOfWork = unitOfWork;
             _ledgerRepository = ledgerRepository;
+            _logger = logger;
         }
         #endregion
 
@@ -185,5 +190,72 @@ namespace RenewOne.Application.LogicService.Accounts
             return $"AGENT-{year}-{nextNumber:D4}";
         }
         #endregion
+
+        public async Task<Result<List<AgentLookupResponse>>> GetAgentsAsync(
+        string? search,
+        CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation("Fetching active agents.");
+
+                var query = _userRepository
+                    .GetQueryable()
+                    .Where(x =>
+                        x.UserType == "Agent" &&
+                        x.IsActive);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    search = search.Trim();
+
+                    query = query.Where(x =>
+                        x.FullName.Contains(search) ||
+                        x.PhoneNumber.Contains(search) ||
+                        x.Account.Code.Contains(search));
+                }
+
+                var agents = await query
+                    .OrderBy(x => x.FullName)
+                    .Select(x => new AgentLookupResponse
+                    {
+                        UserId = x.Id,
+                        AccountId = x.Account.Id,
+
+                        AgentCode = x.Account.Code,
+
+                        AgentName = x.FullName,
+
+                        AgencyName = x.Account.AgentName,
+
+                        MobileNumber = x.PhoneNumber,
+
+                        AgentClass = x.Account.AgentClass.ClassName,
+
+                        CommissionPercentage = x.Account.AgentClass.CommSharePercentage,
+
+                        WalletBalance = x.Account.Wallet != null
+                            ? x.Account.Wallet.Balance
+                            : 0,
+
+                        LedgerBalance = x.Account.Ledger != null
+                            ? x.Account.Ledger.AvailableBalance
+                            : 0,
+
+                        IsActive = x.IsActive
+                    })
+                    .ToListAsync(cancellationToken);
+
+                return Result<List<AgentLookupResponse>>
+                    .Success(agents);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching agents.");
+
+                return Result<List<AgentLookupResponse>>
+                    .Failure("An error occurred while fetching agents.", 500);
+            }
+        }
     }
 }

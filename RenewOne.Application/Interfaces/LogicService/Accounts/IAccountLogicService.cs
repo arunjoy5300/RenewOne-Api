@@ -10,5 +10,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Accounts
         Task<Result<bool>> RegisterAgentAsync(AgentSignupRequest request);
         Task<Result<bool>> ApproveAgentAsync(Guid accountId);
         Task<Result<IEnumerable<PendingAgentResponse>>> GetPendingAgentsAsync(PendingAgentFilterRequest filter);
+        Task<Result<List<AgentLookupResponse>>> GetAgentsAsync(string? search, CancellationToken cancellationToken = default);
     }
 }

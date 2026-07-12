@@ -17,7 +17,7 @@ namespace RenewOne.Domain.Entities
         public bool IsActive { get; set; } = true;
         public virtual ICollection<QRMaster> QRMasters { get; set; }
             = new HashSet<QRMaster>();
-        //public virtual ICollection<BankTransaction> BankTransactions { get; set; }
-        //= new HashSet<BankTransaction>();
+        public virtual ICollection<BankTransaction> BankTransactions { get; set; }
+        = new HashSet<BankTransaction>();
     }
 }

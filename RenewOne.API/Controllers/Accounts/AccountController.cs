@@ -36,5 +36,17 @@ namespace RenewOne.API.Controllers.Accounts
             var result = await _accountLogicService.GetPendingAgentsAsync(filter);
             return StatusCode(result.StatusCode, result);
         }
+        [HttpGet("agents")]
+        [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
+        public async Task<IActionResult> GetAgents(
+        [FromQuery] string? search,
+        CancellationToken cancellationToken)
+        {
+            var result = await _accountLogicService.GetAgentsAsync(
+                search,
+                cancellationToken);
+
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

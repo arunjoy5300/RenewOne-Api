@@ -41,5 +41,15 @@ namespace RenewOne.Persistence.Repositories.Users
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
+        public IQueryable<User> GetQueryable()
+        {
+            return _context.Users
+                .Include(x => x.Account)
+                    .ThenInclude(x => x.AgentClass)
+                .Include(x => x.Account)
+                    .ThenInclude(x => x.Wallet)
+                .Include(x => x.Account)
+                    .ThenInclude(x => x.Ledger);
+        }
     }
 }
