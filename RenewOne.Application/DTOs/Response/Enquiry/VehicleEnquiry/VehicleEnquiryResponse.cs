@@ -9,5 +9,6 @@
         public string? CubicCapacity { get; set; }
         public string? FuelType { get; set; }
         public string SubmissionType { get; set; }
+        public int? CurrentStep { get; set; }
     }
 }

@@ -18,22 +18,48 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpPost("create-vehicle-enquiry")]
-        [Authorize(Roles = "Agent,Staff")]
+        [Authorize()]
         public async Task<IActionResult> CreateVehicleEnquiry([FromBody] CreateVehicleEnquiry request)
         {
-            // Extract tenant and user information from claims
-            var tenantIdClaim = User.FindFirst("AccountId")?.Value;
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (string.IsNullOrEmpty(tenantIdClaim) || string.IsNullOrEmpty(userIdClaim))
+            if (string.IsNullOrEmpty(userIdClaim))
             {
-                return Unauthorized(Result<bool>.Failure("No tenant or user information found.Please login again", 401));
+                return Unauthorized(Result<bool>.Failure("Please login again", 401));
             }
 
-            var tenantId = Guid.Parse(tenantIdClaim);
             var userId = Guid.Parse(userIdClaim);
 
-            var result = await _enquiryService.CreateVehicleEnquiryAsync(request, tenantId, userId);
+            Guid accountId;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role == "SuperAdmin" ||
+                role == "AdminEmployee" ||
+                role == "Supervisor")
+            {
+                if (!request.AccountId.HasValue)
+                {
+                    return BadRequest(Result<bool>.Failure("AccountId is required for admin."));
+                }
+
+                accountId = request.AccountId.Value;
+            }
+            else
+            {
+                var accountIdClaim = User.FindFirst("AccountId")?.Value;
+
+                if (string.IsNullOrEmpty(accountIdClaim))
+                {
+                    return Unauthorized(Result<bool>.Failure("No account information found."));
+                }
+
+                accountId = Guid.Parse(accountIdClaim);
+            }
+
+            var result = await _enquiryService.CreateVehicleEnquiryAsync(
+                request,
+                accountId,
+                userId);
 
             return StatusCode(result.StatusCode, result);
         }
@@ -54,30 +80,52 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpPost("submit-vehicle-enquiry")]
-        [Authorize(Roles = "Agent,Staff")]
+        [Authorize()]
         public async Task<IActionResult> SubmitVehicleEnquiry(SubmitVehicleEnquiry request, CancellationToken cancellationToken)
         {
-            var tenantIdClaim = User.FindFirst("AccountId")?.Value;
-            if (string.IsNullOrEmpty(tenantIdClaim))
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
             {
-                return Unauthorized(Result<bool>.Failure("No tenant or user information found.Please login again", 401));
+                return Unauthorized(Result<bool>.Failure("Please login again.", 401));
             }
 
-            var accountId = Guid.Parse(tenantIdClaim);
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            var result =
-                await _enquiryService.SubmitVehicleEnquiryAsync(
-                    request,
-                    accountId,
-                    cancellationToken);
+            Guid accountId;
 
-            if (!result.IsSuccess)
-                return StatusCode(result.StatusCode, result);
+            if (role == "SuperAdmin" ||
+                role == "AdminEmployee" ||
+                role == "Supervisor")
+            {
+                if (!request.AccountId.HasValue)
+                {
+                    return BadRequest(Result<bool>.Failure("AccountId is required for admin."));
+                }
+
+                accountId = request.AccountId.Value;
+            }
+            else
+            {
+                var accountIdClaim = User.FindFirst("AccountId")?.Value;
+
+                if (string.IsNullOrEmpty(accountIdClaim))
+                {
+                    return Unauthorized(Result<bool>.Failure("No account information found. Please login again.", 401));
+                }
+
+                accountId = Guid.Parse(accountIdClaim);
+            }
+
+            var result = await _enquiryService.SubmitVehicleEnquiryAsync(
+                request,
+                accountId,
+                cancellationToken);
 
             return StatusCode(result.StatusCode, result);
         }
         [HttpPost("submit-policy-request")]
-        [Authorize(Roles ="Agent,Staff")]
+        [Authorize()]
         public async Task<IActionResult> SubmitPolicyRequest(SubmitPolicyRequest request, CancellationToken cancellationToken)
         {
             var response = await _enquiryService.SubmitPolicyRequestAsync(request, cancellationToken);

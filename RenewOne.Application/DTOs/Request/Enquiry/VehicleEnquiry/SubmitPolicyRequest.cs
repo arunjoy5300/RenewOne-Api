@@ -4,6 +4,7 @@ namespace RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry
 {
     public class SubmitPolicyRequest
     {
+        public Guid? AccountId { get; set; }
         public Guid QuoteId { get; set; }
         public Guid EnquiryId { get; set; }
         public bool UseLedger { get; set; }

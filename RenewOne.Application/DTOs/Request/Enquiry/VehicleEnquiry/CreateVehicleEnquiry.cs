@@ -14,6 +14,7 @@ namespace RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry
         public bool HasPreviousClaim { get; set; }
         public int NcbPercentage { get; set; }
         public int Priority { get; set; } = 1;
+        public Guid? AccountId { get; set; }
         public SubmissionMode SubmissionMode { get; set; }
     }
 }

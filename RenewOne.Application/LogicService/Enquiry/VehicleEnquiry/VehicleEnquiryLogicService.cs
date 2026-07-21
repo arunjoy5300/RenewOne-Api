@@ -84,16 +84,28 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
             _logger.LogInformation("Enquiry received for vehicle : {VehicleNumber}", vehicleNumber);
 
-            var existingEnquiry = _enquiryRepository.GetEnquiries().Any(x =>
-                x.VehicleEnquiryDetails != null &&
-                x.VehicleEnquiryDetails.VehicleDetails != null &&
-                x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber == vehicleNumber &&
-                x.Status != "Completed" &&
-                x.CreatedAt >= DateTime.UtcNow.AddDays(-180));
+            var existingEnquiry = _enquiryRepository.GetEnquiries()
+                .FirstOrDefault(x =>
+                    x.VehicleEnquiryDetails != null &&
+                    x.VehicleEnquiryDetails.VehicleDetails != null &&
+                    x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber == vehicleNumber &&
+                    x.Status != "Completed" &&
+                    x.CreatedAt >= DateTime.UtcNow.AddDays(-180));
 
-            if (existingEnquiry)
-                return Result<VehicleEnquiryResponse>.Conflict(
-                    "An enquiry for this vehicle already exists.");
+            if (existingEnquiry != null)
+            {
+                return Result<VehicleEnquiryResponse>.Success(
+                    new VehicleEnquiryResponse
+                    {
+                        EnquiryId = existingEnquiry.Id,
+                        Brand = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturerName,
+                        CubicCapacity = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.CubicCapacity,
+                        FuelType = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.FuelType,
+                        ManufactureYear = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturingMonthYear,
+                        Model = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.Model,
+                        CurrentStep = existingEnquiry.CurrentStep
+                    });
+            }
 
             // Step 1 : Check local database first
             var vehicle = await _vehicleEnquiryRepository
@@ -135,7 +147,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 Priority = request.Priority,
                 Status = "Created",
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                CurrentStep = 2
             };
 
             await _vehicleEnquiryRepository.AddEnquiryAsync(enquiry);
@@ -387,6 +400,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                     enquiry.Status = EnquiryStatus.Quoted.ToString();
                     enquiry.UpdatedAt = DateTime.UtcNow;
+                    enquiry.CurrentStep = 3;
 
                     _enquiryRepository.Update(enquiry);
 
@@ -477,13 +491,29 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         {
             try
             {
-                var accountId = _currentUser.AccountId;
+                Guid accountId;
+
+                if (_currentUser.Role == "SuperAdmin" ||
+                    _currentUser.Role == "AdminEmployee" ||
+                    _currentUser.Role == "Supervisor")
+                {
+                    if (!request.AccountId.HasValue)
+                    {
+                        return Result<string>.Failure("AccountId is required.", 400);
+                    }
+
+                    accountId = request.AccountId.Value;
+                }
+                else
+                {
+                    accountId = _currentUser.AccountId;
+                }
 
                 _logger.LogInformation(
                     "Submitting policy request. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}, AccountId: {AccountId}",
                     request.EnquiryId,
                     request.QuoteId,
-                    _currentUser.AccountId);
+                    accountId);
 
                 var enquiryQuote = await _enquiryQuoteRepository
                     .GetEnquiryQuoteQuery()
