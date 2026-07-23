@@ -221,7 +221,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 FuelType = rc.FuelType,
                 CubicCapacity = rc.CubicCapacity,
                 GrossVehicleWeight = rc.GrossVehicleWeight,
-                IsCommercial = rc.IsCommercial,
                 ManufacturerName = rc.ManufacturerName,
                 ManufacturingMonthYear = rc.ManufacturingMonthYear,
                 NormsType = rc.NormsType,

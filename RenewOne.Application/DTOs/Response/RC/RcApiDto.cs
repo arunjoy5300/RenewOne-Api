@@ -19,7 +19,6 @@
         public string Wheelbase { get; set; } = string.Empty;
         public string SeatCapacity { get; set; } = string.Empty;
         public string CylinderCount { get; set; } = string.Empty;
-        public string IsCommercial { get; set; }
         public bool IsFinanced { get; set; }
         // Owner Details
         public string OwnerName { get; set; } = string.Empty;

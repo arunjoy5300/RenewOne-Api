@@ -1037,9 +1037,8 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateOnly?>("InsuranceValidUpto")
                         .HasColumnType("date");
 
-                    b.Property<string>("IsCommercial")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<bool?>("IsCommercial")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFinanced")
                         .HasColumnType("bit");

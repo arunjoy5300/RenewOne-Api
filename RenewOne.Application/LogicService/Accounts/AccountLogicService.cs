@@ -1,4 +1,6 @@
-﻿using RenewOne.Application.Common.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using RenewOne.Application.Common.Models;
+using RenewOne.Application.Common.Pagination;
 using RenewOne.Application.DTOs.Request.Account;
 using RenewOne.Application.DTOs.Response.Account;
 using RenewOne.Application.Filters.Account;
@@ -63,22 +65,108 @@ namespace RenewOne.Application.LogicService.Accounts
         }
         #endregion
 
-        #region GetPendingAgentsAsync
-        public async Task<Result<IEnumerable<PendingAgentResponse>>> GetPendingAgentsAsync(PendingAgentFilterRequest filter)
+        #region GetAgentsAsync
+        public async Task<Result<AgentDashboardResponse>> GetAgentsAsync(AgentFilterRequest filter)
         {
-            var agents = await _accountRepository.GetPendingAgentsWithFilterAsync(filter.FilterType, filter.CustomDate);
+            var query = _accountRepository
+                .GetQueryable()
+                .Where(x => x.Users.Any(u => u.UserType == "Agent"));
 
-            var response = agents.Select(a => new PendingAgentResponse
+            // Search
+            if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                AccountId = a.Id,
-                AgentName = a.AgentName,
-                Email = a.Email,
-                ContactNumber = a.ContactNumber,
-                RequestedClass = a.AgentClass?.ClassName ?? "Unknown",
-                CreatedAt = a.CreatedAt
-            });
+                var search = filter.Search.Trim().ToLower();
 
-            return Result<IEnumerable<PendingAgentResponse>>.Success(response, "Fetched pending agents successfully");
+                query = query.Where(x =>
+                    x.AgentName.ToLower().Contains(search) ||
+                    x.Email.ToLower().Contains(search) ||
+                    x.ContactNumber.Contains(search) ||
+                    x.Code.Contains(search));
+            }
+
+            // Status Filter
+            if (!string.IsNullOrWhiteSpace(filter.Status))
+            {
+                switch (filter.Status)
+                {
+                    case "PendingApproval":
+                        query = query.Where(x => x.IsActive == false && x.Users.Any(u => u.IsActive == false));
+                        break;
+
+                    case "Active":
+                        query = query.Where(x => x.IsActive);
+                        break;
+
+                    case "Inactive":
+                        query = query.Where(x => !x.IsActive );
+                        break;
+                }
+            }
+
+            // Sorting
+            query = filter.SortBy?.ToLower() switch
+            {
+                "name" => filter.SortOrder == "desc"
+                    ? query.OrderByDescending(x => x.AgentName)
+                    : query.OrderBy(x => x.AgentName),
+
+                "joined" => filter.SortOrder == "desc"
+                    ? query.OrderByDescending(x => x.CreatedAt)
+                    : query.OrderBy(x => x.CreatedAt),
+
+                _ => query.OrderByDescending(x => x.CreatedAt)
+            };
+
+            // Dashboard Summary
+            var allAgents = _accountRepository
+                .GetQueryable()
+                .Where(x => x.Users.Any(u => u.UserType == "Agent-"));
+
+            var summary = new AgentDashboardSummary
+            {
+                ActiveAgents = await allAgents.CountAsync(x => x.IsActive),
+
+                PendingApprovals = await allAgents.CountAsync(x =>
+                    !x.IsActive && !x.Users.Any(u => u.IsActive)),
+            };
+
+            // Pagination
+            var totalRecords = await query.CountAsync();
+
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new AgentListItem
+                {
+                    AccountId = x.Id,
+                    AgentId = x.Code,
+                    AgentName = x.AgentName,
+                    AgencyName = x.AgentName,
+                    Email = x.Email,
+                    PhoneNumber = x.ContactNumber,
+                    Address = x.Address,
+                    Pincode = x.Pincode,
+                    JoinedOn = x.CreatedAt,
+                    Status = x.IsActive ? "Active" : "Inactive"
+                })
+                .ToListAsync();
+
+            var response = new AgentDashboardResponse
+            {
+                Summary = summary,
+                Agents = new PagedResponse<AgentListItem>
+                {
+                    Items = items,
+                    PageNumber = filter.PageNumber,
+                    PageSize = filter.PageSize,
+                    TotalRecords = totalRecords,
+                    TotalPages = (int)Math.Ceiling((double)totalRecords / filter.PageSize)
+                }
+            };
+
+            return Result<AgentDashboardResponse>.Success(
+                response,
+                "Agents fetched successfully");
         }
         #endregion
 
@@ -183,6 +271,63 @@ namespace RenewOne.Application.LogicService.Accounts
 
             string year = DateTime.UtcNow.Year.ToString();
             return $"AGENT-{year}-{nextNumber:D4}";
+        }
+        #endregion
+
+        #region Agent Lookup
+        public async Task<Result<PagedResponse<AgentLookupResponse>>> GetAgentLookupAsync(AgentLookupRequest request)
+        {
+            var query = _accountRepository
+                .GetQueryable()
+                .Where(x =>
+                    x.IsActive &&
+                    x.Users.Any(u => u.UserType == "Agent"));
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var search = request.Search.Trim().ToLower();
+
+                query = query.Where(x =>
+                    x.AgentName.ToLower().Contains(search) ||
+                    x.Code.ToLower().Contains(search) ||
+                    x.ContactNumber.Contains(search));
+            }
+
+            var totalRecords = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(x => x.AgentName)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(x => new AgentLookupResponse
+                {
+                    AccountId = x.Id,
+                    AgentCode = x.Code,
+                    AgentName = x.AgentName,
+                    AgencyName = x.AgentName,
+                    MobileNumber = x.ContactNumber,
+                    AgentClass = x.AgentClass.ClassName,
+                    CommissionPercentage = x.AgentClass.CommSharePercentage,
+                    WalletBalance = x.Wallet != null
+                        ? x.Wallet.Balance
+                        : 0,
+                    LedgerBalance = x.Ledger != null
+                        ? x.Ledger.AvailableBalance
+                        : 0,
+                    IsActive = x.IsActive
+                })
+                .ToListAsync();
+
+            return Result<PagedResponse<AgentLookupResponse>>.Success(
+                new PagedResponse<AgentLookupResponse>
+                {
+                    Items = items,
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize,
+                    TotalRecords = totalRecords,
+                    TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize)
+                },
+                "Agents fetched successfully");
         }
         #endregion
     }
