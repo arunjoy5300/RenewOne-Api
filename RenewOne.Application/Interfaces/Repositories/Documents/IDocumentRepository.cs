@@ -7,5 +7,6 @@ namespace RenewOne.Application.Interfaces.Repositories.Documents
         Task<List<Document>> GetAllDocumentsByEnquiryId(Guid enquiryId);
         Task AddAsync(Document document);
         Task<bool> SaveChangesAsync();
+        IQueryable<Domain.Entities.Document> GetDocuments();
     }
 }

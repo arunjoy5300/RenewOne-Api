@@ -9,6 +9,10 @@ namespace RenewOne.Persistence.Repositories.Users
         private readonly AppDbContext _context;
         public UserRepository(AppDbContext context) => _context = context;
 
+        public IQueryable<User> GetAllUsers()
+        {
+            return _context.Users;
+        }
         public async Task<User?> GetByUserNameAsync(string userName)
         {
             return await _context.Users

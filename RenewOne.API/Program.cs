@@ -183,6 +183,7 @@ builder.Services.AddScoped<IQRMasterLogicService, QRMasterLogicService>();
 builder.Services.AddScoped<IQRMappingRepository, QRMappingRepository>();
 builder.Services.AddScoped<IQRMappingLogicService, QRMappingLogicService>();
 builder.Services.AddScoped<IAssignmentHistoryRepository, AssignmentHistoryRepository>();
+builder.Services.AddScoped<IUserModulePermissionRepository, UserModulePermissionRepository>();
 
 builder.Services.AddSignalR();
 

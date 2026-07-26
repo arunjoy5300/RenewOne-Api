@@ -8,6 +8,7 @@
         Quoted = 4,
         PaymentVerificationPending = 5,
         PolicyInProgress = 6,
-        PolicyIssued = 7
+        PolicyIssued = 7,
+        Closed = 8
     }
 }

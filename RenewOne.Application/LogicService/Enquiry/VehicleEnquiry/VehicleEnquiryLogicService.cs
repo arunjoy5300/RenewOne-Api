@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Models;
+using RenewOne.Application.Common.Pagination;
+using RenewOne.Application.DTOs.Request.Document;
 using RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry;
 using RenewOne.Application.DTOs.Response.Enquiry;
 using RenewOne.Application.DTOs.Response.Enquiry.VehicleEnquiry;
@@ -89,7 +92,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     x.VehicleEnquiryDetails != null &&
                     x.VehicleEnquiryDetails.VehicleDetails != null &&
                     x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber == vehicleNumber &&
-                    x.Status != "Completed" &&
+                    ( x.Status != EnquiryStatus.PolicyIssued.ToString() && x.Status != EnquiryStatus.Closed.ToString() ) &&
                     x.CreatedAt >= DateTime.UtcNow.AddDays(-180));
 
             if (existingEnquiry != null)
@@ -188,7 +191,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 CubicCapacity = vehicle?.CubicCapacity,
                 ManufactureYear = vehicle?.ManufacturingMonthYear,
                 FuelType = vehicle?.FuelType,
-                SubmissionType = request.MIPolicyType
+                SubmissionType = request.MIPolicyType,
+                EngineNumber = vehicle?.EngineNumber,
+                ChassisNumber = vehicle?.ChassisNumber
             };
 
             return Result<VehicleEnquiryResponse>.Success(
@@ -279,6 +284,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     DocType = request.DocType,
                     DocSide = request.DocSide,
                     Url = path,
+                    IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -399,7 +405,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                     enquiry.Status = EnquiryStatus.Quoted.ToString();
                     enquiry.UpdatedAt = DateTime.UtcNow;
-                    enquiry.CurrentStep = 3;
+                    enquiry.CurrentStep = 4;
 
                     _enquiryRepository.Update(enquiry);
 
@@ -726,35 +732,35 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     Name = "RC Front",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.RC).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Front).ToString())
+                        x.DocType == DocumentType.RC.ToString() &&
+                        x.DocSide == DocumentSide.Front.ToString())
                 },
                 new
                 {
                     Name = "RC Back",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.RC).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Back).ToString())
+                        x.DocType == DocumentType.RC.ToString() &&
+                        x.DocSide == DocumentSide.Back.ToString())
                 },
                 new
                 {
                     Name = "ID Front",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.Identity).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Front).ToString())
+                        x.DocType == DocumentType.Identity.ToString() &&
+                        x.DocSide == DocumentSide.Front.ToString())
                 },
                 new
                 {
                     Name = "ID Back",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.Identity).ToString() &&
-                        x.DocSide == ((int)DocumentSide.Back).ToString())
+                        x.DocType == DocumentType.Identity.ToString() &&
+                        x.DocSide == DocumentSide.Back.ToString())
                 },
                 new
                 {
                     Name = "Previous Policy",
                     Exists = documents.Any(x =>
-                        x.DocType == ((int)DocumentType.PreviousPolicy).ToString())
+                        x.DocType == DocumentType.PreviousPolicy.ToString())
                 }
             };
 
@@ -806,6 +812,306 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             };
 
             return Result<PaymentVerificationResponse>.Success(response, "Payment details fetched successfully");
+        }
+        #endregion
+
+        #region List Uploaded Documents
+        public async Task<Result<IEnumerable<DocumentListDto>>> ListUploadedDocuments(Guid enquiryId, CancellationToken ct)
+        {
+            var documents = await _documentRepository.GetAllDocumentsByEnquiryId(enquiryId);
+
+            if (documents == null || !documents.Any())
+            {
+                return Result<IEnumerable<DocumentListDto>>.Failure("No documents found.", 404);
+            }
+
+            var documentDtos = documents.Select(doc => new DocumentListDto
+            {
+                Id = doc.Id,
+                FileName = doc.DocType + "_" + doc.DocSide,
+                DocType = doc.DocType,
+                DocSide = doc.DocSide,
+                Url = doc.Url
+            }).ToList();
+
+            return Result<IEnumerable<DocumentListDto>>.Success(documentDtos, "Documents fetched successfully");
+        }
+        #endregion
+
+        #region Delete Uploaded Document
+        public async Task<Result<bool>> DeleteUploadedDocument(Guid documentId, CancellationToken ct)
+        {
+            try
+            {
+                await _unitOfWork.BeginTransactionAsync();
+                var document = await _documentRepository.GetDocuments().Where(x => x.Id == documentId && x.IsActive).FirstOrDefaultAsync(ct);
+                if (document == null)
+                {
+                    return Result<bool>.Failure("Document not found.", 404);
+                }
+
+                document.IsActive = false;
+                await _documentRepository.SaveChangesAsync();
+
+                await _unitOfWork.CommitTransactionAsync();
+
+                return Result<bool>.Success(true, "Document deleted successfully");
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                _logger.LogError(ex, "Error deleting document with Id: {DocumentId}", documentId);
+                return Result<bool>.Failure("Failed to delete document.", 500);
+            }
+        }
+        #endregion
+
+        #region Replace File
+        public async Task<Result<bool>> ReplaceFile(ReplaceFileDto replaceFileDto, CancellationToken ct)
+        {
+            try
+            {
+                await _unitOfWork.BeginTransactionAsync();
+
+                var oldDocument = await _documentRepository.GetDocuments()
+                    .Where(x => x.Id == replaceFileDto.FileId && x.IsActive)
+                    .FirstOrDefaultAsync(ct);
+
+                if (oldDocument == null)
+                {
+                    return Result<bool>.Failure("Original document not found.", 404);
+                }
+
+                oldDocument.IsActive = false;
+
+                var extension = Path.GetExtension(replaceFileDto.File.FileName);
+
+                var key = $"vehicledocs/{replaceFileDto.FileId}/{Guid.NewGuid()}{extension}";
+
+                await using var stream =
+                    replaceFileDto.File.OpenReadStream();
+
+                var path =
+                    await _cloudflareR2Service.UploadFileAsync(
+                        stream,
+                        key,
+                        replaceFileDto.File.ContentType);
+
+                var newDocument = new Document
+                {
+                    EnquiryId = oldDocument.EnquiryId,
+                    DocType = oldDocument.DocType,
+                    DocSide = oldDocument.DocSide,
+
+                    Url = path,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _documentRepository.AddAsync(newDocument);
+                await _documentRepository.SaveChangesAsync();
+
+                await _unitOfWork.CommitTransactionAsync();
+
+                return Result<bool>.Success(true, "Document replaced successfully");
+
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync();
+                _logger.LogError(ex, "Error replacing file URLs.");
+                return Result<bool>.Failure("Failed to replace file URLs.", 500);
+            }
+        }
+        #endregion
+
+        #region Add Vehicle Quote
+        public async Task<Result<bool>> AddVehicleQuote(AddVehicleQuoteRequest request, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var enquiry = await _enquiryRepository.GetEnquiryQueryable()
+                    .FirstOrDefaultAsync(x => x.Id == request.EnquiryId, cancellationToken);
+                if (enquiry == null)
+                {
+                    return Result<bool>.Failure("Enquiry not found.", 404);
+                }
+                var quote = new EnquiryQuote
+                {
+                    Id = Guid.NewGuid(),
+                    EnquiryId = request.EnquiryId,
+                    InsuranceCompanyId = request.InsuranceCompanyId,
+                    Premium = request.Premium,
+                    CompanyPayable = request.CompanyPayable,
+                    AgentPoints = request.AgentPoints,
+                    AdminProfit = request.AdminProfit,
+                    Remarks = request.Remarks,
+                    Idv = request.Idv,
+                    IsManualQuote = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await _enquiryQuoteRepository.AddEnquiryQuoteAsync(quote);
+                await _enquiryQuoteRepository.SaveChangesAsync();
+                return Result<bool>.Success(true, "Vehicle quote added successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding vehicle quote for EnquiryId: {EnquiryId}", request.EnquiryId);
+                return Result<bool>.Failure("Failed to add vehicle quote.", 500);
+            }
+        }
+        #endregion
+
+        #region List Vehicle Quotes
+        public async Task<Result<PagedResponse<QuoteDto>>> ListVehicleQuotes(
+        ListVehicleQuotesRequest request,
+        CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var enquiry = await _enquiryRepository.GetEnquiryQueryable()
+                    .FirstOrDefaultAsync(x => x.Id == request.EnquiryId, cancellationToken);
+
+                if (enquiry == null)
+                {
+                    return Result<PagedResponse<QuoteDto>>.Failure("Enquiry not found.", 404);
+                }
+
+                var query = _enquiryQuoteRepository.GetEnquiryQuoteQuery()
+                    .Where(x => x.EnquiryId == request.EnquiryId);
+
+                if (!string.IsNullOrWhiteSpace(request.Search))
+                {
+                    var search = request.Search.Trim().ToLower();
+
+                    query = query.Where(x =>
+                        x.InsuranceCompany.CompanyName.ToLower().Contains(search));
+                }
+
+                query = request.SortBy?.ToLower() switch
+                {
+                    "insurancecompanyname" => request.SortDescending
+                        ? query.OrderByDescending(x => x.InsuranceCompany.CompanyName)
+                        : query.OrderBy(x => x.InsuranceCompany.CompanyName),
+
+                    "premium" => request.SortDescending
+                        ? query.OrderByDescending(x => x.Premium)
+                        : query.OrderBy(x => x.Premium),
+
+                    "idv" => request.SortDescending
+                        ? query.OrderByDescending(x => x.Idv)
+                        : query.OrderBy(x => x.Idv),
+
+                    "agentpoints" => request.SortDescending
+                        ? query.OrderByDescending(x => x.AgentPoints)
+                        : query.OrderBy(x => x.AgentPoints),
+
+                    "quotedate" => request.SortDescending
+                        ? query.OrderByDescending(x => x.CreatedAt)
+                        : query.OrderBy(x => x.CreatedAt),
+
+                    _ => query.OrderByDescending(x => x.CreatedAt)
+                };
+
+                var totalCount = await query.CountAsync(cancellationToken);
+
+                var quotes = await query
+                    .Skip((request.PageNumber - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .Select(x => new QuoteDto
+                    {
+                        Id = x.Id,
+                        InsuranceCompanyName = x.InsuranceCompany.CompanyName,
+                        IDV = x.Idv,
+                        Premium = x.Premium,
+                        AgentPoints = x.AgentPoints,
+                        Remarks = x.Remarks,
+                        QuoteDate = x.CreatedAt,
+                        IsSelected = x.IsSelected
+                    })
+                    .ToListAsync(cancellationToken);
+
+                var response = new PagedResponse<QuoteDto>
+                {
+                    Items = quotes,
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize,
+                    TotalRecords = totalCount,
+                    TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+                };
+
+                return Result<PagedResponse<QuoteDto>>.Success(
+                    response,
+                    "Vehicle quotes listed successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error listing vehicle quotes for EnquiryId: {EnquiryId}",
+                    request.EnquiryId);
+
+                return Result<PagedResponse<QuoteDto>>.Failure(
+                    "Failed to list vehicle quotes.",
+                    500);
+            }
+        }
+        #endregion
+
+        #region Submit Vehicle Quote by Admin
+        public async Task<Result<bool>> SubmitVehicleQuoteByAdmin(
+            Guid enquiryId,
+            Guid quoteId,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var enquiry = await _enquiryRepository.GetEnquiryQueryable()
+                    .FirstOrDefaultAsync(x => x.Id == enquiryId, cancellationToken);
+                if (enquiry == null)
+                {
+                    return Result<bool>.Failure("Enquiry not found.", 404);
+                }
+                var quote = await _enquiryQuoteRepository.GetEnquiryQuoteQuery()
+                    .FirstOrDefaultAsync(x => x.Id == quoteId && x.EnquiryId == enquiryId, cancellationToken);
+                if (quote == null)
+                {
+                    return Result<bool>.Failure("Quote not found.", 404);
+                }
+                // Unselect previous quotes
+                var quotes = await _enquiryQuoteRepository.GetEnquiryQuoteQuery()
+                    .Where(x => x.EnquiryId == enquiry.Id)
+                    .ToListAsync(cancellationToken);
+                foreach (var q in quotes)
+                {
+                    q.IsSelected = false;
+                    q.SelectedByUserId = null;
+                    q.SelectedAt = null;
+                }
+                // Select current quote
+                quote.IsSelected = true;
+                quote.SelectedAt = DateTime.UtcNow;
+                quote.SelectedByUserId = _currentUser.UserId;
+                quote.UpdatedAt = DateTime.UtcNow;
+                // Update enquiry status
+                enquiry.Status = EnquiryStatus.Quoted.ToString();
+                enquiry.UpdatedAt = DateTime.UtcNow;
+                enquiry.SelectedQuoteId = quote.Id;
+                _enquiryRepository.Update(enquiry);
+                await _enquiryQuoteRepository.SaveChangesAsync();
+                return Result<bool>.Success(true, "Vehicle quote submitted successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error submitting vehicle quote for EnquiryId: {EnquiryId}, QuoteId: {QuoteId}",
+                    enquiryId,
+                    quoteId);
+                return Result<bool>.Failure(
+                    "Failed to submit vehicle quote.",
+                    500);
+            }
         }
         #endregion
     }
