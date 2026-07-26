@@ -296,6 +296,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("EnquiryId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -945,6 +948,32 @@ namespace RenewOne.Persistence.Migrations
                     b.HasIndex("AccountId");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.UserModulePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModuleName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserModulePermissions");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
@@ -1650,6 +1679,17 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.UserModulePermission", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.User", "User")
+                        .WithMany("UserModulePermissions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.InsuranceType", "InsuranceType")
@@ -1810,6 +1850,8 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("QouteSelectedUser");
 
                     b.Navigation("SubmittedPolicyPayments");
+
+                    b.Navigation("UserModulePermissions");
 
                     b.Navigation("UserTaskAllocations");
 

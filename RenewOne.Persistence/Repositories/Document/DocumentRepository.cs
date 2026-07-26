@@ -14,7 +14,7 @@ namespace RenewOne.Persistence.Repositories.Document
         public async Task<List<Domain.Entities.Document>> GetAllDocumentsByEnquiryId(Guid enquiryId)
         {
             return await _dbContext.Documents
-                .Where(d => d.EnquiryId == enquiryId)
+                .Where(d => d.EnquiryId == enquiryId && d.IsActive)
                 .ToListAsync();
         }
         public async Task AddAsync(Domain.Entities.Document document)
@@ -25,6 +25,10 @@ namespace RenewOne.Persistence.Repositories.Document
         public async Task<bool> SaveChangesAsync()
         {
             return await _dbContext.SaveChangesAsync() > 0;
+        }
+        public IQueryable<Domain.Entities.Document> GetDocuments()
+        {
+            return _dbContext.Documents.AsQueryable();
         }
     }
 }

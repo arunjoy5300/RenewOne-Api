@@ -4,6 +4,7 @@ namespace RenewOne.Application.Interfaces.Repositories.Users
 {
     public interface IUserRepository
     {
+        IQueryable<User> GetAllUsers();
         Task<User?> GetByUserNameAsync(string userName);
         Task<User?> GetByLoginIdentifierAsync(string identifier);
         Task AddUserAsync(User user);

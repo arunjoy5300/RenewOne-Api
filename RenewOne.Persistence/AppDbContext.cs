@@ -40,7 +40,7 @@ namespace RenewOne.Persistence
         public DbSet<QRMaster> QRMasters { get; set; }
         public DbSet<BankAccount> BankAccount { get; set; }
         public DbSet<BankTransaction> BankTransactions { get; set; }
-
+        public DbSet<UserModulePermission> UserModulePermissions { get; set; }
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var entries = ChangeTracker
@@ -70,7 +70,7 @@ namespace RenewOne.Persistence
 
             modelBuilder.Entity<PricingMaster>(entity =>
             {
-                entity.ToTable("PricingMasters"); // ടേബിൾ നെയിം ഉറപ്പിക്കുക
+                entity.ToTable("PricingMasters");
                 entity.Property(p => p.Id).IsRequired();
             });
 
@@ -142,25 +142,24 @@ namespace RenewOne.Persistence
                 entity.HasOne(d => d.Enquiry)
                     .WithMany(p => p.AssignmentHistories)
                     .HasForeignKey(d => d.EnquiryId)
-                    .OnDelete(DeleteBehavior.Cascade); // എൻക്വയറി ഡിലീറ്റ് ആയാൽ ഹിസ്റ്ററി പോകണം
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasOne(d => d.ChangedByUser)
                     .WithMany()
                     .HasForeignKey(d => d.ChangedByUserId)
-                    .OnDelete(DeleteBehavior.NoAction); // ഇവിടെ NoAction നൽകുക
+                    .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(d => d.FromEmployee)
                     .WithMany()
                     .HasForeignKey(d => d.FromEmployeeId)
-                    .OnDelete(DeleteBehavior.NoAction); // ഇവിടെ NoAction നൽകുക
+                    .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(d => d.ToEmployee)
                     .WithMany()
                     .HasForeignKey(d => d.ToEmployeeId)
-                    .OnDelete(DeleteBehavior.NoAction); // ഇവിടെ NoAction നൽകുക
+                    .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // Accounts ടേബിളിലും കാസ്കേഡ് പ്രശ്നം വരാതിരിക്കാൻ ഇത് നൽകാം
             modelBuilder.Entity<Account>()
                 .HasOne(a => a.AgentClass)
                 .WithMany(ac => ac.Accounts)
@@ -168,10 +167,10 @@ namespace RenewOne.Persistence
                 .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<PolicyPayment>()
-    .HasOne(x => x.Enquiry)
-    .WithMany(x => x.PolicyPayments)
-    .HasForeignKey(x => x.EnquiryId)
-    .OnDelete(DeleteBehavior.Restrict);
+                .HasOne(x => x.Enquiry)
+                .WithMany(x => x.PolicyPayments)
+                .HasForeignKey(x => x.EnquiryId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<PolicyPayment>()
                 .HasOne(x => x.EnquiryQuote)
@@ -215,15 +214,18 @@ namespace RenewOne.Persistence
                 .HasForeignKey(x => x.VehicleTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // PricingMaster-ലേക്ക് പുതിയ InsuranceCompany ബന്ധം ചേർക്കുക
             modelBuilder.Entity<PricingMaster>()
                 .HasOne(p => p.InsuranceCompany)
                 .WithMany(i => i.PricingMasters)
                 .HasForeignKey(p => p.InsuranceCompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // ഒരു ഫിക്സഡ് ഡേറ്റ് ക്രിയേറ്റ് ചെയ്യുക
-            //var seedDate = new DateTime(2026, 05, 12);
+            modelBuilder.Entity<UserModulePermission>()
+                .HasOne(x => x.User)
+                .WithMany(x => x.UserModulePermissions)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             var seedDate = new DateTime(2026, 6, 6, 0, 0, 0, DateTimeKind.Utc);
 
 
@@ -233,7 +235,7 @@ namespace RenewOne.Persistence
                     Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440000"),
                     ClassName = "Premium",
                     CommSharePercentage = 15,
-                    CreatedAt = seedDate // DateTime.Now മാറ്റുക
+                    CreatedAt = seedDate
                 },
                 new AgentClass
                 {
@@ -253,24 +255,19 @@ namespace RenewOne.Persistence
 
 
             modelBuilder.Entity<VehicleType>().HasData(
-                // 1. ഇരുചക്ര വാഹനങ്ങൾ
                 new VehicleType { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), TypeName = "Two Wheeler", Description = "Motorcycles and Scooters", IsActive = true, CreatedAt = seedDate },
 
-                // 2. കാറുകൾ
                 new VehicleType { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), TypeName = "Car - Private", Description = "Private Four Wheeler", IsActive = true, CreatedAt = seedDate },
                 new VehicleType { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), TypeName = "Car - Taxi", Description = "Commercial Four Wheeler (Taxi)", IsActive = true, CreatedAt = seedDate },
 
-                // 3. ഓട്ടോറിക്ഷകൾ (ത്രീ വീലർ)
                 new VehicleType { Id = Guid.Parse("44444444-4444-4444-4444-444444444444"), TypeName = "Auto - Private", Description = "Private Three Wheeler", IsActive = true, CreatedAt = seedDate },
                 new VehicleType { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), TypeName = "Auto - Taxi", Description = "Commercial Three Wheeler (Passenger)", IsActive = true, CreatedAt = seedDate },
                 new VehicleType { Id = Guid.Parse("66666666-6666-6666-6666-666666666666"), TypeName = "Auto - Goods", Description = "Commercial Three Wheeler (Goods)", IsActive = true, CreatedAt = seedDate },
 
-                // 4. വലിയ കൊമേഴ്സ്യൽ വാഹനങ്ങൾ (ഭാവിയിലേക്ക്)
                 new VehicleType { Id = Guid.Parse("77777777-7777-7777-7777-777777777777"), TypeName = "Commercial Heavy", Description = "Buses and Lorries", IsActive = true, CreatedAt = seedDate }
             );
 
             modelBuilder.Entity<InsuranceType>().HasData(
-                // 1. ഫുൾ കവർ (Comprehensive)
                 new InsuranceType
                 {
                     Id = Guid.Parse("A1111111-1111-1111-1111-111111111111"),
@@ -279,7 +276,6 @@ namespace RenewOne.Persistence
                     IsActive = true,
                     CreatedAt = seedDate
                 },
-                // 2. തേർഡ് പാർട്ടി മാത്രം (Third Party)
                 new InsuranceType
                 {
                     Id = Guid.Parse("A2222222-2222-2222-2222-222222222222"),
@@ -288,7 +284,6 @@ namespace RenewOne.Persistence
                     IsActive = true,
                     CreatedAt = seedDate
                 },
-                // 3. സ്വന്തം വണ്ടിക്ക് മാത്രം (Standalone Own Damage - SAOD)
                 new InsuranceType
                 {
                     Id = Guid.Parse("A3333333-3333-3333-3333-333333333333"),

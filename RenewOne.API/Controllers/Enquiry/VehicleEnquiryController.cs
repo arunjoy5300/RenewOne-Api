@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RenewOne.Application.Common.Models;
+using RenewOne.Application.DTOs.Request.Document;
 using RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
 using System.Security.Claims;
@@ -141,6 +142,45 @@ namespace RenewOne.API.Controllers.Enquiry
             var result = await _enquiryService
                 .GetPaymentDetails(enquiryId);
 
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("{enquiryId:guid}/documents")]
+        public async Task<IActionResult> ListUploadedDocuments(Guid enquiryId, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryService.ListUploadedDocuments(enquiryId, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpPost("{documentId:guid}")]
+        public async Task<IActionResult> DeleteUploadedDocument(Guid documentId, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryService.DeleteUploadedDocument(documentId, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpPut("replace-document")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> ReplaceFile([FromForm] ReplaceFileDto replaceFileDto, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryService.ReplaceFile(replaceFileDto, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpPost("add-vehicle-quote")]
+        public async Task<IActionResult> AddVehicleQuote([FromBody] AddVehicleQuoteRequest request, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryService.AddVehicleQuote(request, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("quotes")]
+        public async Task<IActionResult> ListVehicleQuotes([FromQuery] ListVehicleQuotesRequest request, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryService.ListVehicleQuotes(request, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpPost("{enquiryId:guid}/quotes/{quoteId:guid}/submit")]
+        public async Task<IActionResult> SubmitVehicleQuoteByAdmin(Guid enquiryId, Guid quoteId, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryService.SubmitVehicleQuoteByAdmin(enquiryId, quoteId, cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
     }

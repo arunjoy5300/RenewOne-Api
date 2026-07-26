@@ -51,5 +51,6 @@
         public decimal AgentPoints { get; set; }
         public string? Remarks { get; set; }
         public DateTime? QuoteDate { get; set; }
+        public bool? IsSelected { get; set; }
     }
 }

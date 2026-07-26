@@ -21,6 +21,7 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<PolicyPayment> SubmittedPolicyPayments { get; set; } = new HashSet<PolicyPayment>();
         public virtual ICollection<PolicyPayment> VerifiedPolicyPayments { get; set; } = new HashSet<PolicyPayment>();
         public virtual ICollection<EnquiryQuote> QouteSelectedUser { get; set; } = new HashSet<EnquiryQuote>();
+        public virtual ICollection<UserModulePermission> UserModulePermissions { get; set; } = new HashSet<UserModulePermission>();
 
     }
 }
