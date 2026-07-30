@@ -296,6 +296,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid>("EnquiryId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -324,6 +327,9 @@ namespace RenewOne.Persistence.Migrations
 
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("CurrentStep")
+                        .HasColumnType("int");
 
                     b.Property<string>("CustomerName")
                         .IsRequired()
@@ -944,6 +950,32 @@ namespace RenewOne.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.UserModulePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModuleName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserModulePermissions");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1034,9 +1066,8 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateOnly?>("InsuranceValidUpto")
                         .HasColumnType("date");
 
-                    b.Property<string>("IsCommercial")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<bool?>("IsCommercial")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFinanced")
                         .HasColumnType("bit");
@@ -1648,6 +1679,17 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.UserModulePermission", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.User", "User")
+                        .WithMany("UserModulePermissions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.InsuranceType", "InsuranceType")
@@ -1808,6 +1850,8 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("QouteSelectedUser");
 
                     b.Navigation("SubmittedPolicyPayments");
+
+                    b.Navigation("UserModulePermissions");
 
                     b.Navigation("UserTaskAllocations");
 

@@ -61,7 +61,9 @@ namespace RenewOne.Persistence.Repositories.Accounts
 
         public IQueryable<Account> GetQueryable()
         {
-            return _context.Accounts.AsQueryable();
+            return _context.Accounts
+                .Include(u => u.Users)
+                .AsQueryable();
         }
     }
 }

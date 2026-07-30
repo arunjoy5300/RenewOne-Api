@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RenewOne.Application.DTOs.Request.Employees;
 using RenewOne.Application.DTOs.Request.User;
 using RenewOne.Application.Interfaces.LogicService.User;
 
@@ -45,6 +46,53 @@ namespace RenewOne.API.Controllers.User
         public async Task<IActionResult> CreateInternalUser([FromBody] CreateInternalUserRequest request)
         {
             var result = await _userLogicService.CreateInternalUserAsync(request);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpPost("admin/get-all-employees")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
+        public async Task<IActionResult> GetAllEmployees([FromQuery] EmployeeListRequest request)
+        {
+            var result = await _userLogicService.GetAdminEmployee(request);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpPost("admin/toggle-employee-status/{id}")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
+        public async Task<IActionResult> ToggleEmployeeStatus(Guid id)
+        {
+            var result = await _userLogicService.ToggleAdminEmployeeStatusAsync(id);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpGet("admin/employee-dashboard")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
+        public async Task<IActionResult> GetEmployeeDashboard()
+        {
+            var result = await _userLogicService.GetAdminStaffDashboardOverviewAsync();
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("admin/employee-rights/{id}")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
+
+        public async Task<IActionResult> GetEmployeeRights(Guid id)
+        {
+            var result = await _userLogicService.GetAdminEmployeeRightsAsync(id);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpPost("admin/update-employee-rights")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
+
+        public async Task<IActionResult> UpdateEmployeeRights([FromBody] UpdateEmployeeRightsRequest request)
+        {
+            var result = await _userLogicService.UpdateAdminEmployeeRightsAsync(request);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpPost("admin/update-employee")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
+        public async Task<IActionResult> UpdateEmployee([FromBody] UpdateAdminEmployeeRequest request)
+        {
+            var result = await _userLogicService.UpdateAdminEmployeeAsync(request);
             return StatusCode(result.StatusCode, result);
         }
     }

@@ -126,7 +126,6 @@ namespace RenewOne.Infrastructure.Services.RC
                 OwnerFatherName = response.Data.OwnerFatherName,
                 RegistrationAuthority = response.Data.RegAuthority,
                 ManufacturingMonthYear = response.Data.ManufacturingMonthYear,
-                IsCommercial = response.Data.IsCommercial,
                 GrossVehicleWeight = response.Data.GrossVehicleWeight,
                 CylinderCount = response.Data.VehicleCylinderNumber,
                 SeatCapacity = response.Data.VehicleSeatCapacity,

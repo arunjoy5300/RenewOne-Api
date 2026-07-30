@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace RenewOne.Domain.Enums
+﻿namespace RenewOne.Domain.Enums
 {
     public enum DocumentType
     {

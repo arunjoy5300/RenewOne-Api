@@ -36,7 +36,7 @@ namespace RenewOne.Domain.Entities
 
         public string CylinderCount { get; set; } = string.Empty;
 
-        public string IsCommercial { get; set; } = string.Empty;
+        public bool? IsCommercial { get; set; }
 
         public bool IsFinanced { get; set; }
 

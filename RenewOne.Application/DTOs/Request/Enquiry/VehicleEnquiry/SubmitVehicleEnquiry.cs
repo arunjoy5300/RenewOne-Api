@@ -3,5 +3,6 @@
     public class SubmitVehicleEnquiry
     {
         public Guid EnquiryId { get; set; }
+        public Guid? AccountId { get; set; }
     }
 }

@@ -1,5 +1,8 @@
 ﻿using RenewOne.Application.Common.Models;
+using RenewOne.Application.Common.Pagination;
+using RenewOne.Application.DTOs.Request.Employees;
 using RenewOne.Application.DTOs.Request.User;
+using RenewOne.Application.DTOs.Response.Employees;
 using RenewOne.Application.DTOs.Response.User;
 
 namespace RenewOne.Application.Interfaces.LogicService.User
@@ -10,5 +13,11 @@ namespace RenewOne.Application.Interfaces.LogicService.User
         Task<Result<IEnumerable<StaffResponse>>> GetMyStaffAsync(Guid accountId);
         Task<Result<bool>> ToggleStaffStatusAsync(Guid staffId, Guid accountId);
         Task<Result<bool>> CreateInternalUserAsync(CreateInternalUserRequest request);
+        Task<Result<PagedResponse<EmployeeListResponse>>> GetAdminEmployee(EmployeeListRequest request);
+        Task<Result<bool>> ToggleAdminEmployeeStatusAsync(Guid employeeId);
+        Task<Result<AdminStaffDashboardResponse>> GetAdminStaffDashboardOverviewAsync();
+        Task<Result<EmployeeRightsResponse>> GetAdminEmployeeRightsAsync(Guid employeeId);
+        Task<Result<bool>> UpdateAdminEmployeeRightsAsync(UpdateEmployeeRightsRequest request);
+        Task<Result<bool>> UpdateAdminEmployeeAsync(UpdateAdminEmployeeRequest request);
     }
 }

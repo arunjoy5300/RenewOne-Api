@@ -10,9 +10,23 @@ namespace RenewOne.Persistence.Repositories.Users
         {
             _dbContext = dbContext;
         }
+        public async Task AddAsync(UserTaskAllocation allocation)
+        {
+            await _dbContext.UserTaskAllocations.AddAsync(allocation);
+        }
+
+        public async Task AddRangeAsync(IEnumerable<UserTaskAllocation> allocations)
+        {
+            await _dbContext.UserTaskAllocations.AddRangeAsync(allocations);
+        }
         public IQueryable<UserTaskAllocation> GetQueryable()
         {
             return _dbContext.UserTaskAllocations;
+        }
+        public Task DeleteRangeAsync(IEnumerable<UserTaskAllocation> allocations)
+        {
+            _dbContext.UserTaskAllocations.RemoveRange(allocations);
+            return Task.CompletedTask;
         }
     }
 }

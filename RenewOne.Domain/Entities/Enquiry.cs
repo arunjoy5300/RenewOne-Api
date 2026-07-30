@@ -13,6 +13,7 @@ namespace RenewOne.Domain.Entities
         public int Priority { get; set; }
         public string Status { get; set; } = string.Empty;
         public Guid? SelectedQuoteId { get; set; }
+        public int? CurrentStep { get; set; }
         public virtual Account? Tenant { get; set; }
         public virtual InsuranceType? InsuranceType { get; set; }
         public virtual VehicleEnquiryDetails? VehicleEnquiryDetails { get; set; }
