@@ -184,6 +184,8 @@ builder.Services.AddScoped<IQRMappingRepository, QRMappingRepository>();
 builder.Services.AddScoped<IQRMappingLogicService, QRMappingLogicService>();
 builder.Services.AddScoped<IAssignmentHistoryRepository, AssignmentHistoryRepository>();
 builder.Services.AddScoped<IUserModulePermissionRepository, UserModulePermissionRepository>();
+builder.Services.AddScoped<IInsuranceCompanyRepository, InsuranceCompanyRepository>();
+builder.Services.AddScoped<IInsuranceCompanyLogicService, InsuranceCompanyLogicService>();
 
 builder.Services.AddSignalR();
 
