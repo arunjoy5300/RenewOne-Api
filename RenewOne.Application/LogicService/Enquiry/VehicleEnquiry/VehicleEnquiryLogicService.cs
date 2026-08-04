@@ -44,6 +44,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         private readonly ICurrentUserService _currentUser;
         private readonly IPolicyPaymentRepository _policyPaymentRepository;
         private readonly INotificationService _notificationService;
+        private readonly ILedgerTransactionRepository _ledgerTransactionRepository;
         #endregion
 
         #region Constructor
@@ -61,7 +62,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             ILedgerRepository ledgerRepository,
             ICurrentUserService currentUser,
             IPolicyPaymentRepository policyPaymentRepository,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ILedgerTransactionRepository ledgerTransactionRepository)
         {
             _vehicleEnquiryRepository = vehicleEnquiryRepository;
             _rcApiService = rcApiService;
@@ -77,6 +79,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             _currentUser = currentUser;
             _policyPaymentRepository = policyPaymentRepository;
             _notificationService = notificationService;
+            _ledgerTransactionRepository = ledgerTransactionRepository;
         }
         #endregion
 
@@ -106,7 +109,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         FuelType = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.FuelType,
                         ManufactureYear = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturingMonthYear,
                         Model = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.Model,
-                        CurrentStep = existingEnquiry.CurrentStep
+                        CurrentStep = existingEnquiry.CurrentStep,
+                        SelectedQuotedId = existingEnquiry.SelectedQuoteId,
                     });
             }
 
@@ -494,6 +498,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         #region SubmitPolicyRequest
         public async Task<Result<string>> SubmitPolicyRequestAsync(SubmitPolicyRequest request, CancellationToken cancellationToken = default)
         {
+            var role = _currentUser.IpAddress;
+            _logger.LogInformation(role);
             try
             {
                 Guid accountId;
@@ -583,10 +589,11 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         "A payment request has already been submitted for this quote.");
                 }
 
+                Ledger? ledger = null;
+
                 if (request.UseLedger)
                 {
-                    var ledger = await _ledgerRepository
-                        .GetByAccountIdAsync(accountId);
+                    ledger = await _ledgerRepository.GetByAccountIdAsync(accountId);
 
                     if (ledger == null)
                     {
@@ -605,7 +612,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                             ledger.AvailableBalance,
                             enquiryQuote.Premium);
 
-                        return Result<string>.Failure("Insufficent ledger balance");
+                        return Result<string>.Failure("Insufficient ledger balance");
                     }
                 }
                 else
@@ -622,6 +629,35 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 // Start Transaction
                 await _unitOfWork.BeginTransactionAsync();
+
+                if (request.UseLedger && ledger != null)
+                {
+                    var balanceBefore = ledger.AvailableBalance;
+
+                    ledger.AvailableBalance -= enquiryQuote.Premium;
+                    ledger.UpdatedAt = DateTime.UtcNow;
+
+                    await _ledgerRepository.Update(ledger);
+
+                    var ledgerTransaction = new LedgerTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        LedgerId = ledger.Id,
+                        TransactionType = "Debit",
+                        Amount = enquiryQuote.Premium,
+                        BalanceBefore = balanceBefore,
+                        BalanceAfter = ledger.AvailableBalance,
+                        EnquiryId = enquiry.Id,
+                        ReferenceNo = enquiry.Id.ToString(),
+                        Remarks = $"Policy payment for enquiry {enquiry.Id}",
+                        CreatedByUserId = _currentUser.UserId,
+                        CreatedByIpAddress = _currentUser.IpAddress,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    await _ledgerTransactionRepository.AddLedgerTransaction(ledgerTransaction);
+                }
 
                 // Unselect previous quotes
                 var quotes = await _enquiryQuoteRepository
@@ -668,11 +704,23 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     "Policy payment created successfully. PolicyPaymentId: {PolicyPaymentId}",
                     policyPayment.Id);
 
-                enquiry.Status =
+                if (_currentUser.Role == "SuperAdmin" ||
+                    _currentUser.Role == "AdminEmployee" ||
+                    _currentUser.Role == "Supervisor")
+                {
+
+                    enquiry.Status =
+                    EnquiryStatus.PolicyInProgress.ToString();
+                }
+                else
+                {
+                    enquiry.Status =
                     EnquiryStatus.PaymentVerificationPending.ToString();
+                }
 
                 enquiry.UpdatedAt = DateTime.UtcNow;
                 enquiry.SelectedQuoteId = enquiryQuote.Id;
+                enquiry.CurrentStep = 6;
 
                 _enquiryRepository.Update(enquiry);
 
@@ -1098,6 +1146,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 enquiry.Status = EnquiryStatus.Quoted.ToString();
                 enquiry.UpdatedAt = DateTime.UtcNow;
                 enquiry.SelectedQuoteId = quote.Id;
+                enquiry.CurrentStep = 5;
                 _enquiryRepository.Update(enquiry);
                 await _enquiryQuoteRepository.SaveChangesAsync();
                 return Result<bool>.Success(true, "Vehicle quote submitted successfully.");

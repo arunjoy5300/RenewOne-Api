@@ -226,7 +226,7 @@ namespace RenewOne.Application.LogicService.Accounts
                     IsActive = true
                 };
 
-                var ledger = new Ledger
+                var ledger = new Domain.Entities.Ledger
                 {
                     Id= Guid.NewGuid(),
                     AccountId = newAccount.Id,

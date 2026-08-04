@@ -12,6 +12,13 @@ namespace RenewOne.Persistence.Repositories.AdminEntry.PricingMaster
         {
             _context = context;
         }
+        public IQueryable<Domain.Entities.PricingMaster> GetPricingMastersQuery()
+        {
+            return _context.PricingMasters
+                .Include(p => p.AgentClass)
+                .Include(p => p.VehicleType)
+                .Include(p => p.InsuranceCompany).AsQueryable();
+        }
         public async Task<bool> AddPricingMaster(Domain.Entities.PricingMaster pricingMaster)
         {
             await _context.PricingMasters.AddAsync(pricingMaster);

@@ -15,6 +15,7 @@ namespace RenewOne.Domain.Entities
         public decimal CompanyPayable { get; set; }
         public decimal AgentPoints { get; set; }
         public decimal AdminProfit { get; set; }
+        public string? FuelType { get; set; }
         public bool IsActive { get; set; } = true;
         public virtual AgentClass? AgentClass { get; set; }
         public virtual VehicleType? VehicleType { get; set; }

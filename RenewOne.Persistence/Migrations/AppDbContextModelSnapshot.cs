@@ -800,6 +800,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FuelType")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("InsuranceCompanyId")
                         .HasColumnType("uniqueidentifier");
 

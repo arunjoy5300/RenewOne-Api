@@ -1,6 +1,9 @@
-﻿using RenewOne.Application.Common.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using RenewOne.Application.Common.Models;
+using RenewOne.Application.Common.Pagination;
 using RenewOne.Application.DTOs.Request.PricingMaster;
 using RenewOne.Application.DTOs.Response.PricingMaster;
+using RenewOne.Application.Filters.Admin;
 using RenewOne.Application.Interfaces.LogicService.AdminEntry;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.PricingMaster;
 
@@ -30,6 +33,7 @@ namespace RenewOne.Application.LogicService.AdminEntry.PricingMaster
                     VehicleTypeId = request.VehicleTypeId,
                     MinCC = request.MinCC,
                     MaxCC = request.MaxCC,
+                    FuelType = request.FuelType,
                     TotalPremium = request.TotalPremium,
                     CompanyPayable = request.CompanyPayable,
                     AdminProfit = request.AdminProfit,
@@ -39,39 +43,81 @@ namespace RenewOne.Application.LogicService.AdminEntry.PricingMaster
                 };
 
                 var success = await _repository.AddPricingMaster(pricing);
-                return success ? Result<bool>.Success(true, "Pricing added", 201)
-                               : Result<bool>.Failure("Failed to add pricing", 500);
+                if (!success) 
+                {
+                    return Result<bool>.Failure("Pricing added successfully");
+                }
+                return Result<bool>.Success(true, "Pricing added successfully",201);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                return Result<bool>.Failure("Error creating records");
+                return Result<bool>.Failure("Error creating records",500);
             }
         }
 
-        public async Task<Result<List<PricingMasterResponse>>> GetAllPricingAsync()
+        public async Task<Result<PagedResponse<PricingMasterResponse>>> GetAllPricingAsync(PricingMasterFilterRequest request)
         {
             try
             {
-                var result = await _repository.GetAllPricingMaster();
-                if(result == null)
-                {
-                    return Result<List<PricingMasterResponse>>.NotFound("No records found");
-                }
+                var query = _repository.GetPricingMastersQuery();
 
-                var response = result.Select(p => new PricingMasterResponse
+                // Filters
+                if (request.InsuranceCompanyId.HasValue)
+                    query = query.Where(x => x.InsuranceCompanyId == request.InsuranceCompanyId);
+
+                if (request.AgentClassId.HasValue)
+                    query = query.Where(x => x.AgentClassId == request.AgentClassId);
+
+                if (request.VehicleTypeId.HasValue)
+                    query = query.Where(x => x.VehicleTypeId == request.VehicleTypeId);
+
+                if (!string.IsNullOrWhiteSpace(request.FuelType))
+                    query = query.Where(x => x.FuelType == request.FuelType);
+
+                if (request.IsActive.HasValue)
+                    query = query.Where(x => x.IsActive == request.IsActive);
+
+                // Total count
+                var totalCount = await query.CountAsync();
+                Console.WriteLine($"Total Count: {totalCount}");
+
+                // Pagination
+                var pricing = await query
+                    .OrderBy(x => x.Id)
+                    .Skip((request.PageNumber - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToListAsync();
+
+                var response = pricing.Select(x => new PricingMasterResponse
                 {
-                    Id = p.Id,
-                    TotalPremium = p.TotalPremium,
-                    AgentClassName = p.AgentClass.ClassName,
-                    VehicleTypeName = p.VehicleType.TypeName,
-                    InsuranceCompanyName = p.InsuranceCompany.CompanyName
+                    Id = x.Id,
+                    InsuranceCompanyName = x.InsuranceCompany.CompanyName,
+                    AgentClassName = x.AgentClass.ClassName,
+                    VehicleTypeName = x.VehicleType.TypeName,
+                    FuelType = x.FuelType,
+                    MinCC = x.MinCC,
+                    MaxCC = x.MaxCC,
+                    TotalPremium = x.TotalPremium,
+                    CompanyPayable = x.CompanyPayable,
+                    AgentPoints = x.AgentPoints,
+                    AdminProfit = x.AdminProfit,
+                    IsActive = x.IsActive
                 }).ToList();
 
-                return Result<List<PricingMasterResponse>>.Success(response, "Records fetched successfully");
+                return Result<PagedResponse<PricingMasterResponse>>.Success(
+                    new PagedResponse<PricingMasterResponse>
+                    {
+                        Items = response,
+                        TotalRecords = totalCount,
+                        PageNumber = request.PageNumber,
+                        PageSize = request.PageSize,
+                        TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+                    },
+                    "Pricing records fetched successfully");
             }
             catch(Exception ex)
             {
-                return Result<List<PricingMasterResponse>>.Failure("Error fetching records");
+                return Result<PagedResponse<PricingMasterResponse>>.Failure($"Error fetching records: {ex.Message}");
             }
         }
 

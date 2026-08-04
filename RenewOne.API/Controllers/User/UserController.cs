@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using RenewOne.Application.DTOs.Request.Employees;
 using RenewOne.Application.DTOs.Request.User;
+using RenewOne.Application.Filters.User;
 using RenewOne.Application.Interfaces.LogicService.User;
 
 namespace RenewOne.API.Controllers.User
@@ -26,10 +27,18 @@ namespace RenewOne.API.Controllers.User
         }
 
         [Authorize(Roles = "Agent,Staff")]
-        [HttpGet("my-staff")]
+        [HttpGet("list-staff")]
         public async Task<IActionResult> GetMyStaff()
         {
             var result = await _userLogicService.GetMyStaffAsync(CurrentUserAccountId);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [Authorize(Roles = "Agent,Staff")]
+        [HttpGet("list-all-staffs")]
+        public async Task<IActionResult> ListStaffWithFilters([FromQuery] StaffFilterRequest request)
+        {
+            var result = await _userLogicService.ListStaffWithFiltersAsync(request);
             return StatusCode(result.StatusCode, result);
         }
 

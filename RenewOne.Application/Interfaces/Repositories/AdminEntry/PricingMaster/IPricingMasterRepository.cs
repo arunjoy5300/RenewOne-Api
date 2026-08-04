@@ -6,6 +6,7 @@ namespace RenewOne.Application.Interfaces.Repositories.AdminEntry.PricingMaster
 {
     public interface IPricingMasterRepository
     {
+        IQueryable<Domain.Entities.PricingMaster> GetPricingMastersQuery();
         Task<Domain.Entities.PricingMaster> GetPricingMasterByIdAsync(Guid id);
         Task<List<Domain.Entities.PricingMaster>> GetAllPricingMaster();
         Task<bool> AddPricingMaster(Domain.Entities.PricingMaster pricingMaster);

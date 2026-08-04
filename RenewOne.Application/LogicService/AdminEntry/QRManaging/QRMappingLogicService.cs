@@ -63,7 +63,7 @@ namespace RenewOne.Application.LogicService.AdminEntry.QRManaging
                 }
 
                 // Vehicle insurance requires Vehicle Type
-                if (insuranceType.Name.Equals("Vehicle", StringComparison.OrdinalIgnoreCase))
+                if (insuranceType.Name.Contains("Vehicle", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!request.VehicleTypeId.HasValue)
                     {

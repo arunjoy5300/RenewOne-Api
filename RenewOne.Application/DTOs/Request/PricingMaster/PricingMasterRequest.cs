@@ -5,6 +5,7 @@
         public Guid InsuranceCompanyId { get; set; }
         public Guid AgentClassId { get; set; }
         public Guid VehicleTypeId { get; set; }
+        public string? FuelType { get; set; }
         public int MinCC { get; set; }
         public int MaxCC { get; set; }
         public decimal TotalPremium { get; set; }

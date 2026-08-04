@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.PricingMaster;
+using RenewOne.Application.Filters.Admin;
 using RenewOne.Application.Interfaces.LogicService.AdminEntry;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace RenewOne.API.Controllers.AdminEntry.PricingMaster
 {
@@ -19,34 +22,29 @@ namespace RenewOne.API.Controllers.AdminEntry.PricingMaster
         public async Task<IActionResult> Create([FromBody] PricingMasterRequest request)
         {
             var result = await _pricingService.CreatePricingAsync(request);
-            if (!result.IsSuccess) return BadRequest(result.Errors);
 
-            return StatusCode(result.StatusCode, result.Message);
+            return StatusCode(result.StatusCode, result);
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] PricingMasterFilterRequest request)
         {
-            var data = await _pricingService.GetAllPricingAsync();
-            return Ok(data);
+            var data = await _pricingService.GetAllPricingAsync(request);
+            return StatusCode(data.StatusCode, data);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var data = await _pricingService.GetPricingByIdAsync(id);
-            if (data == null) return NotFound();
-
-            return Ok(data);
+            return StatusCode(data.StatusCode, data);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] PricingMasterRequest request)
         {
             var result = await _pricingService.UpdatePricingAsync(id, request);
-            if (!result.IsSuccess) return StatusCode(result.StatusCode, result.Errors);
-
-            return Ok(result.Message);
+            return StatusCode(result.StatusCode, result);
         }
     }
 }

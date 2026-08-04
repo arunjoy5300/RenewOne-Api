@@ -12,6 +12,7 @@ using RenewOne.Application.Interfaces.LogicService.BankAccounts;
 using RenewOne.Application.Interfaces.LogicService.Class;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
+using RenewOne.Application.Interfaces.LogicService.Ledger;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
 using RenewOne.Application.Interfaces.LogicService.User;
 using RenewOne.Application.Interfaces.LogicService.Wallet;
@@ -44,6 +45,7 @@ using RenewOne.Application.LogicService.BankAccounts;
 using RenewOne.Application.LogicService.Class;
 using RenewOne.Application.LogicService.Enquiry;
 using RenewOne.Application.LogicService.Enquiry.VehicleEnquiry;
+using RenewOne.Application.LogicService.Ledgers;
 using RenewOne.Application.LogicService.PolicyPayments;
 using RenewOne.Application.LogicService.Users;
 using RenewOne.Application.LogicService.Wallet;
@@ -186,6 +188,8 @@ builder.Services.AddScoped<IAssignmentHistoryRepository, AssignmentHistoryReposi
 builder.Services.AddScoped<IUserModulePermissionRepository, UserModulePermissionRepository>();
 builder.Services.AddScoped<IInsuranceCompanyRepository, InsuranceCompanyRepository>();
 builder.Services.AddScoped<IInsuranceCompanyLogicService, InsuranceCompanyLogicService>();
+builder.Services.AddScoped<ILedgerTransactionRepository, LedgerTransactionRepository>();
+builder.Services.AddScoped<ILedgerLogicService, LedgerLogicService>();
 
 builder.Services.AddSignalR();
 

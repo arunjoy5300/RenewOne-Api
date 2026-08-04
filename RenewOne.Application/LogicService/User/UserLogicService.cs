@@ -5,10 +5,12 @@ using RenewOne.Application.DTOs.Request.Employees;
 using RenewOne.Application.DTOs.Request.User;
 using RenewOne.Application.DTOs.Response.Employees;
 using RenewOne.Application.DTOs.Response.User;
+using RenewOne.Application.Filters.User;
 using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.User;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Users;
+using RenewOne.Application.Interfaces.Services.LoggedUser;
 using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
 
@@ -22,6 +24,7 @@ namespace RenewOne.Application.LogicService.Users
         private readonly IUnitOfWork _unitOfWork;
         private readonly IUserTaskAllocationRepository _userTaskAllocationRepository;
         private readonly IUserModulePermissionRepository _userModulePermissionRepository;
+        private readonly ICurrentUserService _currentUser;
         #endregion
 
         #region Constructor
@@ -29,13 +32,15 @@ namespace RenewOne.Application.LogicService.Users
             IEnquiryRepository enquiryRepository, 
             IUnitOfWork unitOfWork, 
             IUserTaskAllocationRepository userTaskAllocationRepository,
-            IUserModulePermissionRepository userModulePermissionRepository)
+            IUserModulePermissionRepository userModulePermissionRepository,
+            ICurrentUserService currentUser)
         {
             _userRepository = userRepository;
             _enquiryRepository = enquiryRepository;
             _unitOfWork = unitOfWork;
             _userTaskAllocationRepository = userTaskAllocationRepository;
             _userModulePermissionRepository = userModulePermissionRepository;
+            _currentUser = currentUser;
         }
         #endregion
 
@@ -475,6 +480,72 @@ namespace RenewOne.Application.LogicService.Users
             });
 
             return Result<IEnumerable<StaffResponse>>.Success(response);
+        }
+        #endregion
+
+        #region List Staff with Filters
+        public async Task<Result<PagedResponse<StaffResponse>>> ListStaffWithFiltersAsync(StaffFilterRequest request)
+        {
+            var accountId = _currentUser.AccountId;
+            try
+            {
+                var query = _userRepository.GetAllUsers()
+                    .Where(x => x.AccountId == accountId);
+
+                // Search
+                if (!string.IsNullOrWhiteSpace(request.Search))
+                {
+                    var search = request.Search.Trim().ToLower();
+
+                    query = query.Where(x =>
+                        x.UserName.ToLower().Contains(search) ||
+                        x.FullName.ToLower().Contains(search) ||
+                        x.Email.ToLower().Contains(search) ||
+                        x.PhoneNumber.Contains(search));
+                }
+
+                // Status Filter
+                if (request.Status.HasValue)
+                {
+                    query = query.Where(x => x.IsActive == request.Status.Value);
+                }
+
+                var totalRecords = await query.CountAsync();
+
+                var staffList = await query
+                    .OrderByDescending(x => x.CreatedAt)
+                    .Skip((request.PageNumber - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToListAsync();
+
+                var response = staffList.Select(s => new StaffResponse
+                {
+                    Id = s.Id,
+                    UserName = s.UserName,
+                    FullName = s.FullName,
+                    Email = s.Email,
+                    PhoneNumber = s.PhoneNumber,
+                    IsActive = s.IsActive,
+                    CreatedAt = s.CreatedAt
+                }).ToList();
+
+                return Result<PagedResponse<StaffResponse>>.Success(
+                    new PagedResponse<StaffResponse>
+                    {
+                        Items = response,
+                        TotalRecords = totalRecords,
+                        PageNumber = request.PageNumber,
+                        PageSize = request.PageSize,
+                        TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize)
+                    },
+                    "Staff fetched successfully");
+            }
+            catch (Exception ex)
+            {
+                return Result<PagedResponse<StaffResponse>>.Failure(
+                    $"Error fetching staff: {ex.Message}",
+                    500);
+            }
         }
         #endregion
 

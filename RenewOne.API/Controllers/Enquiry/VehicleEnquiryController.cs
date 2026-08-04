@@ -125,13 +125,13 @@ namespace RenewOne.API.Controllers.Enquiry
 
             return StatusCode(result.StatusCode, result);
         }
-        [HttpPost("submit-policy-request")]
         [Authorize()]
+        [HttpPost("submit-policy-request")]
         public async Task<IActionResult> SubmitPolicyRequest(SubmitPolicyRequest request, CancellationToken cancellationToken)
         {
             var response = await _enquiryService.SubmitPolicyRequestAsync(request, cancellationToken);
-            if (!response.IsSuccess)
-                return StatusCode(response.StatusCode, response);
+            //if (!response.IsSuccess)
+            //    return StatusCode(response.StatusCode, response);
 
             return StatusCode(response.StatusCode, response);
         }

@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RenewOne.Application.DTOs.Request.Enquiry;
 using RenewOne.Application.Filters.Enquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
 
@@ -8,7 +7,7 @@ namespace RenewOne.API.Controllers.Enquiry
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    //[Authorize]
     public class EnquiryController : ControllerBase
     {
         private readonly IEnquiryLogicService _enquiryLogicService;
@@ -121,6 +120,12 @@ namespace RenewOne.API.Controllers.Enquiry
                 enquiryId,
                 cancellationToken);
 
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("admin/ledger-payment-details/{enquiryId:guid}")]
+        public async Task<IActionResult> GetLedgerPaymentDetails(Guid enquiryId, CancellationToken cancellationToken)
+        {
+            var result = await _enquiryLogicService.GetEnquiryLedgerDetails(enquiryId, cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
     }

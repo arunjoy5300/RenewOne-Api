@@ -7,8 +7,10 @@ using RenewOne.Application.Filters.Enquiry;
 using RenewOne.Application.Hubs.RenewOne.Application.Hubs;
 using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
+using RenewOne.Application.Interfaces.Repositories.AdminEntry.EnquiryQuote;
 using RenewOne.Application.Interfaces.Repositories.AssignmentHistories;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
+using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Repositories.Users;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
 using RenewOne.Application.Interfaces.Services.SignalR;
@@ -28,6 +30,8 @@ namespace RenewOne.Application.LogicService.Enquiry
         private readonly IAssignmentHistoryRepository _assignmentHistoryRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
+        private readonly IEnquiryQuoteRepository _enquiryQuoteRepository;
+        private readonly ILedgerRepository _ledgerRepository;
         #endregion
 
         #region Constructor
@@ -39,7 +43,9 @@ namespace RenewOne.Application.LogicService.Enquiry
             IUserRepository userRepository,
             IAssignmentHistoryRepository assignmentHistoryRepository,
             IUnitOfWork unitOfWork,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IEnquiryQuoteRepository enquiryQuoteRepository,
+            ILedgerRepository ledgerRepository)
         {
             _enquiryRepository = enquiryRepository;
             _currentUser = currentUser;
@@ -49,6 +55,8 @@ namespace RenewOne.Application.LogicService.Enquiry
             _assignmentHistoryRepository = assignmentHistoryRepository;
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
+            _enquiryQuoteRepository = enquiryQuoteRepository;
+            _ledgerRepository = ledgerRepository;
         }
         #endregion
 
@@ -807,6 +815,7 @@ namespace RenewOne.Application.LogicService.Enquiry
         }
         #endregion
 
+        #region GetAssignableEmployeesAsync
         public async Task<Result<List<AssignableEmployeeResponse>>> GetAssignableEmployeesAsync(
         Guid enquiryId,
         CancellationToken cancellationToken = default)
@@ -864,5 +873,50 @@ namespace RenewOne.Application.LogicService.Enquiry
                         500);
             }
         }
+        #endregion
+
+        #region GetEnquiryLedgerDetails
+        public async Task<Result<EnquiryLedgerDetails>> GetEnquiryLedgerDetails(Guid enquiryId, CancellationToken ct)
+        {
+            try
+            {
+                var enquiry = await _enquiryRepository.GetByIdAsync(enquiryId);
+                if (enquiry == null)
+                {
+                    return Result<EnquiryLedgerDetails>.NotFound("Enquiry not found");
+                }
+                
+                if(enquiry.SelectedQuoteId == null)
+                {
+                    return Result<EnquiryLedgerDetails>.Failure("No quote selected for this enquiry");
+                }
+
+                var quoteDetials = await _enquiryQuoteRepository.GetEnquiryQuoteQuery()
+                    .FirstOrDefaultAsync(x => x.EnquiryId == enquiryId && x.Id == enquiry.SelectedQuoteId && x.IsSelected,ct);
+
+                if(quoteDetials == null)
+                {
+                    return Result<EnquiryLedgerDetails>.NotFound("No quote found for this enquiry");
+                }
+
+                var ledger = await _ledgerRepository.GetByAccountIdAsync(enquiry.TenantId);
+                var finalBalance = quoteDetials.Premium - quoteDetials.AgentPoints;
+
+                var response = new EnquiryLedgerDetails
+                {
+                    LedgerBalance = ledger.AvailableBalance,
+                    FinalAmount = finalBalance,
+                    BalanceAfterCut = ledger.AvailableBalance - finalBalance
+                };
+
+                return Result<EnquiryLedgerDetails>.Success(response, "Ledger details fetched successfully");
+
+            }
+            catch (Exception ex)
+            {
+                return Result<EnquiryLedgerDetails>.Failure($"Error fetching ledger details: {ex.Message}",500);
+            }
+        }
+        #endregion
     }
 }

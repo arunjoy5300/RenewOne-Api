@@ -10,6 +10,7 @@
         public string? FuelType { get; set; }
         public string SubmissionType { get; set; }
         public int? CurrentStep { get; set; }
+        public Guid? SelectedQuotedId { get; set; }
         public string EngineNumber { get; set; } = string.Empty;
         public string ChassisNumber { get; set; } = string.Empty;
     }
