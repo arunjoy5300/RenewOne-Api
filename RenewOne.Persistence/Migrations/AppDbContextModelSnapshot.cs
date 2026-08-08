@@ -319,6 +319,9 @@ namespace RenewOne.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool?>("AdminAssisted")
+                        .HasColumnType("bit");
+
                     b.Property<Guid?>("AssignedEmployeeId")
                         .HasColumnType("uniqueidentifier");
 

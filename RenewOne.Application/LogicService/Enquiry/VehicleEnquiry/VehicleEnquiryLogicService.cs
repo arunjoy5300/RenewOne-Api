@@ -143,6 +143,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 }
             }
 
+            
             var enquiry = new Domain.Entities.Enquiry
             {
                 Id = Guid.NewGuid(),
@@ -157,6 +158,16 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 UpdatedAt = DateTime.UtcNow,
                 CurrentStep = 2
             };
+
+            if (_currentUser.Role == "SuperAdmin" || _currentUser.Role == "AdminEmployee" || _currentUser.Role == "Supervisor")
+            {
+                enquiry.AssignedEmployeeId = _currentUser.UserId;
+                enquiry.AdminAssisted = true;
+            }
+            else
+            {
+                enquiry.AdminAssisted = false;
+            }
 
             await _vehicleEnquiryRepository.AddEnquiryAsync(enquiry);
 
@@ -460,6 +471,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 enquiry.Status = EnquiryStatus.Submitted.ToString();
                 enquiry.UpdatedAt = DateTime.UtcNow;
+                enquiry.CurrentStep = 4;
 
                 _enquiryRepository.Update(enquiry);
 

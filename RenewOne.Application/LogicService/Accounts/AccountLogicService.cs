@@ -330,5 +330,33 @@ namespace RenewOne.Application.LogicService.Accounts
                 "Agents fetched successfully");
         }
         #endregion
+
+        #region User Profile
+        public async Task<Result<UserProfileResponse>> GetUserProfileAsync(Guid userId)
+        {
+            var user = await _userRepository.GetAllUsers()
+                .Include(u => u.Account)
+                .ThenInclude(a => a.AgentClass)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null)
+            {
+                return Result<UserProfileResponse>.NotFound("User not found");
+            }
+            var response = new UserProfileResponse
+            {
+                UserId = user.Id,
+                AccountId = user.AccountId,
+                ProfileUrl = null,
+                FullName = user.FullName,
+                UserName = user.UserName,
+                Email = user.Email,
+                Phone = user.PhoneNumber,
+                Address = user.Account?.Address,
+                Pincode = user.Account?.Pincode,
+                AgencyName = user.Account?.AgentName
+            };
+            return Result<UserProfileResponse>.Success(response, "User profile fetched successfully");
+        }
+        #endregion
     }
 }

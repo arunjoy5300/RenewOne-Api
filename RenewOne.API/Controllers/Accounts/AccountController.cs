@@ -43,5 +43,11 @@ namespace RenewOne.API.Controllers.Accounts
             var result = await _accountLogicService.GetAgentLookupAsync(request);
             return StatusCode(result.StatusCode, result);
         }
+        [HttpGet("user-profile/{userId}")]
+        public async Task<IActionResult> GetUserProfile([FromRoute] Guid userId)
+        {
+            var result = await _accountLogicService.GetUserProfileAsync(userId);
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

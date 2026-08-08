@@ -553,7 +553,8 @@ namespace RenewOne.Application.LogicService.Enquiry
                 .Take(filter.PageSize)
                 .Select(x => new CommonQueueResponse
                 {
-                    EnquiryId = x.Id,
+                    Id = x.Id,
+                    EnquiryId = $"ENQ-{x.Id.ToString().Substring(x.Id.ToString().Length - 4, 4).ToUpper()}",
                     CustomerName = x.CustomerName,
                     CustomerNumber = x.CustomerNumber,
                     VehicleNumber = x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
@@ -596,8 +597,6 @@ namespace RenewOne.Application.LogicService.Enquiry
             var query = _enquiryRepository
                 .GetQueryable()
                 .Where(e =>
-                    (e.Status == EnquiryStatus.Submitted.ToString() ||
-                     e.Status == EnquiryStatus.PolicyInProgress.ToString()) &&
                     e.AssignedEmployeeId == null &&
                     allocations.Any(a =>
                         a.InsuranceTypeId == e.InsuranceTypeId &&
@@ -638,12 +637,15 @@ namespace RenewOne.Application.LogicService.Enquiry
                 ? query.OrderByDescending(e => e.CreatedAt)
                 : query.OrderBy(e => e.CreatedAt);
 
-            var pagedResult = await query
-                .Where(x => x.Status == EnquiryStatus.Submitted.ToString() ||
-                    x.Status == EnquiryStatus.PolicyInProgress.ToString())
+            var totalCount = await query.CountAsync();
+
+            var result = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
                 .Select(e => new CommonQueueResponse
                 {
-                    EnquiryId = e.Id,
+                    Id = e.Id,
+                    EnquiryId = $"ENQ-{e.Id:D4}",
                     CustomerName = e.CustomerName,
                     CustomerNumber = e.CustomerNumber,
                     VehicleNumber = e.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
@@ -658,10 +660,20 @@ namespace RenewOne.Application.LogicService.Enquiry
                     SubmittedOn = e.UpdatedAt,
                     Priority = e.Priority
                 })
-                .ToPagedResponseAsync(filter.PageNumber, filter.PageSize);
+                .ToListAsync();
+
+            var response = new PagedResponse<CommonQueueResponse>
+            {
+                Items = result,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize,
+                TotalRecords = totalCount,
+                TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize)
+            };
+
 
             return Result<PagedResponse<CommonQueueResponse>>.Success(
-                pagedResult,
+                response,
                 "Common queue fetched successfully.");
         }
         #endregion
@@ -693,15 +705,15 @@ namespace RenewOne.Application.LogicService.Enquiry
                     return Result<string>.NotFound("Enquiry not found.");
                 }
 
-                if (enquiry.Status != nameof(EnquiryStatus.Submitted) && enquiry.Status != nameof(EnquiryStatus.PaymentVerificationPending))
-                {
-                    _logger.LogWarning(
-                        "Only Submitted or PaymentVerificationPending enquiries can be assigned. Current Status: {Status}",
-                        enquiry.Status);
+                //if (enquiry.Status != nameof(EnquiryStatus.Submitted) && enquiry.Status != nameof(EnquiryStatus.PaymentVerificationPending))
+                //{
+                //    _logger.LogWarning(
+                //        "Only Submitted or PaymentVerificationPending enquiries can be assigned. Current Status: {Status}",
+                //        enquiry.Status);
 
-                    return Result<string>.Failure(
-                        "Only Submitted or PaymentVerificationPending enquiries can be assigned.");
-                }
+                //    return Result<string>.Failure(
+                //        "Only Submitted or PaymentVerificationPending enquiries can be assigned.");
+                //}
 
                 var employee = await _userRepository.GetByIdAsync(employeeId);
 
@@ -885,16 +897,16 @@ namespace RenewOne.Application.LogicService.Enquiry
                 {
                     return Result<EnquiryLedgerDetails>.NotFound("Enquiry not found");
                 }
-                
-                if(enquiry.SelectedQuoteId == null)
+
+                if (enquiry.SelectedQuoteId == null)
                 {
                     return Result<EnquiryLedgerDetails>.Failure("No quote selected for this enquiry");
                 }
 
                 var quoteDetials = await _enquiryQuoteRepository.GetEnquiryQuoteQuery()
-                    .FirstOrDefaultAsync(x => x.EnquiryId == enquiryId && x.Id == enquiry.SelectedQuoteId && x.IsSelected,ct);
+                    .FirstOrDefaultAsync(x => x.EnquiryId == enquiryId && x.Id == enquiry.SelectedQuoteId && x.IsSelected, ct);
 
-                if(quoteDetials == null)
+                if (quoteDetials == null)
                 {
                     return Result<EnquiryLedgerDetails>.NotFound("No quote found for this enquiry");
                 }
@@ -914,9 +926,673 @@ namespace RenewOne.Application.LogicService.Enquiry
             }
             catch (Exception ex)
             {
-                return Result<EnquiryLedgerDetails>.Failure($"Error fetching ledger details: {ex.Message}",500);
+                return Result<EnquiryLedgerDetails>.Failure($"Error fetching ledger details: {ex.Message}", 500);
             }
+        }
+        #endregion
+
+        #region My Task Enquiry ( enquiries assigned to current logged user )
+        public async Task<Result<PagedResponse<CommonQueueResponse>>> MyTaskEnquiries(EnquiryFilter filter, CancellationToken ct)
+        {
+            var currentUserId = _currentUser.UserId;
+
+            var query = _enquiryRepository.GetQueryable()
+                .Where(x => x.AssignedEmployeeId == currentUserId);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(x =>
+                    x.CustomerName.Contains(filter.Search) ||
+                    x.CustomerNumber.Contains(filter.Search) ||
+                    x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber.Contains(filter.Search));
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x => x.InsuranceTypeId == filter.InsuranceTypeId);
+            }
+
+            if (filter.VehicleTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.VehicleEnquiryDetails!.VehicleTypeId == filter.VehicleTypeId);
+            }
+
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.CreatedAt >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value.ToDateTime(TimeOnly.MaxValue);
+                query = query.Where(x => x.CreatedAt <= to);
+            }
+
+            if (filter.AccountId.HasValue)
+            {
+                query = query.Where(x =>
+                x.TenantId == filter.AccountId);
+            }
+
+            var totalCount = await query.CountAsync(ct);
+
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new CommonQueueResponse
+                {
+                    Id = x.Id,
+                    EnquiryId = $"ENQ-{x.Id.ToString().Substring(x.Id.ToString().Length - 4, 4).ToUpper()}",
+                    CustomerName = x.CustomerName,
+                    CustomerNumber = x.CustomerNumber,
+                    VehicleNumber = x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
+                    VehicleType = x.VehicleEnquiryDetails.VehicleType.TypeName,
+                    InsuranceType = x.InsuranceType.Name,
+                    PolicyType = x.VehicleEnquiryDetails.MIPolicyType,
+                    CreatedBy = x.CreatedByUser!.FullName,
+                    CreatedByPhone = x.CreatedByUser!.PhoneNumber,
+                    CreatedByRole = x.CreatedByUser!.UserType,
+                    AgencyName = x.Tenant.AgentName,
+                    SubmittedOn = x.UpdatedAt,
+                    Priority = x.Priority,
+                    Status = x.Status
+                })
+                .ToListAsync(ct);
+
+            var pagedResult = new PagedResponse<CommonQueueResponse>
+            {
+                Items = items,
+                TotalRecords = totalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return Result<PagedResponse<CommonQueueResponse>>.Success(
+                pagedResult,
+                "Enquiries fetched successfully");
+        }
+        #endregion
+
+        #region Quote Queue ( enquiries assigned to current logged user for quote or quoted )
+        public async Task<Result<PagedResponse<QuoteQueueResponse>>> MyQuoteQueue(QuoteQueueFilter filter, CancellationToken ct)
+        {
+            var currentUserId = _currentUser.UserId;
+            var query = _enquiryRepository.GetQuoteQueue()
+                .Where(x => x.AssignedEmployeeId == currentUserId);
+
+            if (filter.Type == QuoteQueueType.Quote)
+            {
+                query = query.Where(x =>
+                    x.Status == EnquiryStatus.Submitted.ToString() &&
+                    (
+                        x.AdminAssisted == true ||
+                        x.CurrentStep == 4
+                    ));
+            }
+            else if (filter.Type == QuoteQueueType.Quoted)
+            {
+                query = query.Where(x =>
+                    x.Status == EnquiryStatus.Quoted.ToString() &&
+                    x.EnquiryQuotes.Any());
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(x =>
+                    x.CustomerName.Contains(filter.Search) ||
+                    x.CustomerNumber.Contains(filter.Search) ||
+                    x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber.Contains(filter.Search));
+            }
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x => x.InsuranceTypeId == filter.InsuranceTypeId);
+            }
+            if (filter.VehicleTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.VehicleEnquiryDetails!.VehicleTypeId == filter.VehicleTypeId);
+            }
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.CreatedAt >= from);
+            }
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value.ToDateTime(TimeOnly.MaxValue);
+                query = query.Where(x => x.CreatedAt <= to);
+            }
+            if (filter.AccountId.HasValue)
+            {
+                query = query.Where(x =>
+                x.TenantId == filter.AccountId);
+            }
+            var totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new QuoteQueueResponse
+                {
+                    Id = x.Id,
+                    EnquiryId = $"ENQ-{x.Id.ToString().Substring(x.Id.ToString().Length - 4, 4).ToUpper()}",
+                    CustomerName = x.CustomerName,
+                    CustomerNumber = x.CustomerNumber,
+                    VehicleNumber = x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
+                    VehicleType = x.VehicleEnquiryDetails.VehicleType.TypeName,
+                    InsuranceType = x.InsuranceType.Name,
+                    PolicyType = x.VehicleEnquiryDetails.MIPolicyType,
+                    CreatedBy = x.CreatedByUser!.FullName,
+                    CreatedByPhone = x.CreatedByUser!.PhoneNumber,
+                    CreatedByRole = x.CreatedByUser!.UserType,
+                    AgencyName = x.Tenant.AgentName,
+                    SubmittedOn = x.UpdatedAt,
+                    Status = x.Status,
+                    AdminAssisted = x.AdminAssisted,
+                    QuoteCount = x.EnquiryQuotes.Count(),
+                    AssignedEmployee = x.AssignedEmployee.FullName,
+                    AssignedEmployeeId = x.AssignedEmployeeId,
+                    AssignedEmployeeRole = x.AssignedEmployee.UserType
+                }).ToListAsync(ct);
+
+            var pagedResult = new PagedResponse<QuoteQueueResponse>
+            {
+                Items = items,
+                TotalRecords = totalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return Result<PagedResponse<QuoteQueueResponse>>.Success(
+                pagedResult,
+                "Enquiries fetched successfully");
+        }
+        #endregion
+
+        #region Policy Queue ( enquiries assigned to current logged user for policy or policy issued )
+        public async Task<Result<PagedResponse<QuoteQueueResponse>>> MyPolicyQueue(PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var currentUserId = _currentUser.UserId;
+            var query = _enquiryRepository.GetQuoteQueue()
+                .Where(x => x.AssignedEmployeeId == currentUserId);
+
+            if (filter.Type == PolicyQueueType.Policy)
+            {
+                query = query.Where(x =>
+                    x.CurrentStep == 6 ||
+                    x.Status == EnquiryStatus.PaymentVerificationPending.ToString() ||
+                    x.Status == EnquiryStatus.PolicyInProgress.ToString());
+            }
+            else if (filter.Type == PolicyQueueType.IssuedPolicy)
+            {
+                query = query.Where(x =>
+                    x.CurrentStep == 7 ||
+                    x.Status == EnquiryStatus.PolicyIssued.ToString());
+            }
+
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(x =>
+                    x.CustomerName.Contains(filter.Search) ||
+                    x.CustomerNumber.Contains(filter.Search) ||
+                    x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber.Contains(filter.Search));
+            }
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x => x.InsuranceTypeId == filter.InsuranceTypeId);
+            }
+            if (filter.VehicleTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.VehicleEnquiryDetails!.VehicleTypeId == filter.VehicleTypeId);
+            }
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.CreatedAt >= from);
+            }
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value.ToDateTime(TimeOnly.MaxValue);
+                query = query.Where(x => x.CreatedAt <= to);
+            }
+            if (filter.AccountId.HasValue)
+            {
+                query = query.Where(x =>
+                x.TenantId == filter.AccountId);
+            }
+            var totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new QuoteQueueResponse
+                {
+                    Id = x.Id,
+                    CustomerName = x.CustomerName,
+                    CustomerNumber = x.CustomerNumber,
+                    VehicleNumber =
+                        x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
+                    VehicleType =
+                        x.VehicleEnquiryDetails.VehicleType.TypeName,
+                    InsuranceType =
+                        x.InsuranceType.Name,
+                    PolicyType =
+                        x.VehicleEnquiryDetails.MIPolicyType,
+                    CreatedBy =
+                        x.CreatedByUser!.FullName,
+                    CreatedByPhone =
+                        x.CreatedByUser.PhoneNumber,
+                    CreatedByRole =
+                        x.CreatedByUser.UserType,
+                    AgencyName =
+                        x.Tenant.AgentName,
+                    SubmittedOn =
+                        x.UpdatedAt,
+                    Status =
+                        x.Status,
+                    CurrentStep =
+                        x.CurrentStep,
+                    AssignedEmployee = x.AssignedEmployee.FullName,
+                    AssignedEmployeeId = x.AssignedEmployeeId,
+                    AssignedEmployeeRole = x.AssignedEmployee.UserType
+                })
+                .ToListAsync(ct);
+
+            var pagedResult = new PagedResponse<QuoteQueueResponse>
+            {
+                Items = items,
+                TotalRecords = totalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return Result<PagedResponse<QuoteQueueResponse>>.Success(
+                pagedResult,
+                filter.Type == PolicyQueueType.Policy
+                    ? "Policy enquiries fetched successfully."
+                    : "Issued policy enquiries fetched successfully.");
+        }
+        #endregion
+
+        #region Draft Queue
+        public async Task<Result<PagedResponse<QuoteQueueResponse>>> DraftQueue(PolicyQueueFilter filter,CancellationToken ct)
+        {
+            var query = _enquiryRepository.GetQuoteQueue();
+
+            query = query.Where(x =>
+             x.Status == EnquiryStatus.Created.ToString() &&
+             x.CurrentStep == 2);
+
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                query = query.Where(x =>
+                    x.CustomerName.Contains(filter.Search) ||
+                    x.CustomerNumber.Contains(filter.Search) ||
+                    x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber.Contains(filter.Search));
+            }
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x => x.InsuranceTypeId == filter.InsuranceTypeId);
+            }
+            if (filter.VehicleTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.VehicleEnquiryDetails!.VehicleTypeId == filter.VehicleTypeId);
+            }
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(x => x.CreatedAt >= from);
+            }
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value.ToDateTime(TimeOnly.MaxValue);
+                query = query.Where(x => x.CreatedAt <= to);
+            }
+            if (filter.AccountId.HasValue)
+            {
+                query = query.Where(x =>
+                x.TenantId == filter.AccountId);
+            }
+            var totalCount = await query.CountAsync(ct);
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new QuoteQueueResponse
+                {
+                    Id = x.Id,
+                    CustomerName = x.CustomerName,
+                    CustomerNumber = x.CustomerNumber,
+                    VehicleNumber =
+                        x.VehicleEnquiryDetails!.VehicleDetails!.VehicleNumber,
+                    VehicleType =
+                        x.VehicleEnquiryDetails.VehicleType.TypeName,
+                    InsuranceType =
+                        x.InsuranceType.Name,
+                    PolicyType =
+                        x.VehicleEnquiryDetails.MIPolicyType,
+                    CreatedBy =
+                        x.CreatedByUser!.FullName,
+                    CreatedByPhone =
+                        x.CreatedByUser.PhoneNumber,
+                    CreatedByRole =
+                        x.CreatedByUser.UserType,
+                    AgencyName =
+                        x.Tenant.AgentName,
+                    SubmittedOn =
+                        x.UpdatedAt,
+                    Status =
+                        x.Status,
+                    CurrentStep =
+                        x.CurrentStep
+                })
+                .ToListAsync(ct);
+
+            var pagedResult = new PagedResponse<QuoteQueueResponse>
+            {
+                Items = items,
+                TotalRecords = totalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return Result<PagedResponse<QuoteQueueResponse>>.Success(
+                pagedResult,
+                "Draft enquiries fetched successfully.");
+        }
+        #endregion
+
+        #region Admin Enquiry Dashboard
+        public async Task<Result<AdminEnquiryDashboardResponse>> GetAdminEnquiryDashboardAsync(EnquiryDashboardFilter filter,CancellationToken ct)
+        {
+            var query = _enquiryRepository.GetEnquiryQueryable();
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            DateOnly fromDate;
+            DateOnly toDate;
+
+            switch (filter.dateFilter)
+            {
+                case DateFilterType.Today:
+
+                    fromDate = today;
+                    toDate = today;
+
+                    break;
+
+                case DateFilterType.ThisWeek:
+
+                    // Monday = start of week
+                    var diff = ((int)today.DayOfWeek + 6) % 7;
+
+                    fromDate = today.AddDays(-diff);
+                    toDate = today;
+
+                    break;
+
+                case DateFilterType.ThisMonth:
+
+                    fromDate = new DateOnly(
+                        today.Year,
+                        today.Month,
+                        1);
+
+                    toDate = today;
+
+                    break;
+
+                case DateFilterType.Custom:
+
+                    if (!filter.FromDate.HasValue ||
+                        !filter.ToDate.HasValue)
+                    {
+                        return Result<AdminEnquiryDashboardResponse>.Failure(
+                            "FromDate and ToDate are required for custom date range.");
+                    }
+
+                    if (filter.FromDate > filter.ToDate)
+                    {
+                        return Result<AdminEnquiryDashboardResponse>.Failure(
+                            "FromDate cannot be greater than ToDate.");
+                    }
+
+                    fromDate = filter.FromDate.Value;
+                    toDate = filter.ToDate.Value;
+
+                    break;
+
+                default:
+
+                    return Result<AdminEnquiryDashboardResponse>.Failure(
+                        "Invalid dashboard date range.");
+            }
+
+            var from = fromDate.ToDateTime(TimeOnly.MinValue);
+
+            var to = toDate.ToDateTime(TimeOnly.MaxValue);
+
+            query = query.Where(x =>
+                x.CreatedAt >= from &&
+                x.CreatedAt <= to);
+
+            if (filter.AccountId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.TenantId == filter.AccountId.Value);
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.InsuranceTypeId == filter.InsuranceTypeId.Value);
+            }
+
+            var dashboard = await query
+                .GroupBy(x => 1)
+                .Select(g => new AdminEnquiryDashboardResponse
+                {
+                    TotalCount = g.Count(),
+
+                    DraftCount = g.Count(x =>
+                        x.Status == EnquiryStatus.Created.ToString() &&
+                        x.CurrentStep == 2),
+
+                    CommonQueueCount = g.Count(x =>
+                        x.AssignedEmployeeId == null),
+
+                    QuoteCount = g.Count(x =>
+                        x.Status == EnquiryStatus.Submitted.ToString() &&
+                        (
+                            x.AdminAssisted == true ||
+                            x.CurrentStep == 4
+                        )),
+
+                    QuotedCount = g.Count(x =>
+                        x.Status == EnquiryStatus.Quoted.ToString()),
+
+                    PolicyCount = g.Count(x =>
+                        x.CurrentStep == 6 ||
+                        x.Status == EnquiryStatus.PaymentVerificationPending.ToString() ||
+                        x.Status == EnquiryStatus.PolicyInProgress.ToString() && x.AssignedEmployeeId == _currentUser.UserId),
+
+                    IssuedPolicyCount = g.Count(x =>
+                        x.CurrentStep == 7 ||
+                        x.Status == EnquiryStatus.PolicyIssued.ToString()),
+
+                    MyTaskCount = g.Count(x =>
+                        x.AssignedEmployeeId == _currentUser.UserId),
+
+                    UnassignedCount = g.Count(x =>
+                        x.AssignedEmployeeId == null),
+
+                    AdminCreatedCount = g.Count(x =>
+                        x.AdminAssisted == true)
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (dashboard == null)
+            {
+                dashboard = new AdminEnquiryDashboardResponse();
+            }
+
+            return Result<AdminEnquiryDashboardResponse>.Success(
+                dashboard,
+                "Enquiry dashboard fetched successfully.");
+        }
+        #endregion
+
+        #region Get All Enquiries for Admin
+        public async Task<Result<PagedResponse<QuoteQueueResponse>>> GetAllAdminEnquiriesAsync(PolicyQueueFilter filter,CancellationToken ct)
+        {
+            var query = _enquiryRepository.GetEnquiryQueryable();
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var search = filter.Search.Trim();
+
+                query = query.Where(x =>
+                    x.CustomerName.Contains(search) ||
+                    x.CustomerNumber.Contains(search) ||
+                    (
+                        x.VehicleEnquiryDetails != null &&
+                        x.VehicleEnquiryDetails.VehicleDetails != null &&
+                        x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
+                            .Contains(search)
+                    ));
+            }
+
+            if (filter.Status.HasValue)
+            {
+                query = query.Where(x =>
+                    x.Status == filter.Status.Value.ToString());
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.InsuranceTypeId == filter.InsuranceTypeId.Value);
+            }
+
+            if (filter.VehicleTypeId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.VehicleEnquiryDetails != null &&
+                    x.VehicleEnquiryDetails.VehicleTypeId ==
+                    filter.VehicleTypeId.Value);
+            }
+
+            if (filter.AccountId.HasValue)
+            {
+                query = query.Where(x =>
+                    x.TenantId == filter.AccountId.Value);
+            }
+
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value
+                    .ToDateTime(TimeOnly.MinValue);
+
+                query = query.Where(x =>
+                    x.CreatedAt >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var to = filter.ToDate.Value
+                    .ToDateTime(TimeOnly.MaxValue);
+
+                query = query.Where(x =>
+                    x.CreatedAt <= to);
+            }
+
+            query = filter.SortDescending
+                ? query.OrderByDescending(x => x.CreatedAt)
+                : query.OrderBy(x => x.CreatedAt);
+
+            var totalRecords = await query
+                .CountAsync(ct);
+
+            var items = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .Select(x => new QuoteQueueResponse
+                {
+                    Id = x.Id,
+
+                    EnquiryId =
+                        $"ENQ-{x.Id.ToString().Substring(
+                            x.Id.ToString().Length - 4
+                        ).ToUpper()}",
+
+                    CustomerName = x.CustomerName,
+
+                    CustomerNumber = x.CustomerNumber,
+
+                    VehicleNumber =
+                        x.VehicleEnquiryDetails!
+                            .VehicleDetails!
+                            .VehicleNumber,
+
+                    VehicleType =
+                        x.VehicleEnquiryDetails!
+                            .VehicleType!
+                            .TypeName,
+
+                    InsuranceType =
+                        x.InsuranceType!.Name,
+
+                    PolicyType =
+                        x.VehicleEnquiryDetails!
+                            .MIPolicyType,
+
+                    Status = x.Status,
+
+                    CurrentStep = x.CurrentStep,
+
+                    CreatedBy =
+                        x.CreatedByUser!.FullName,
+
+                    CreatedByPhone =
+                        x.CreatedByUser.PhoneNumber,
+
+                    CreatedByRole =
+                        x.CreatedByUser.UserType,
+
+                    AgencyName =
+                        x.Tenant.AgentName,
+
+                    AssignedEmployeeId =
+                        x.AssignedEmployeeId,
+                    AssignedEmployee =
+                        x.AssignedEmployee!.FullName,
+                    AssignedEmployeeRole =
+                        x.AssignedEmployee.UserType,
+
+                    AdminAssisted =
+                        x.AdminAssisted == true,
+
+                    SubmittedOn =
+                        x.CreatedAt
+                })
+                .ToListAsync(ct);
+
+            var pagedResult = new PagedResponse<QuoteQueueResponse>
+            {
+                Items = items,
+                TotalRecords = totalRecords,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return Result<PagedResponse<QuoteQueueResponse>>.Success(
+                pagedResult,
+                "Enquiries fetched successfully.");
         }
         #endregion
     }
 }
+

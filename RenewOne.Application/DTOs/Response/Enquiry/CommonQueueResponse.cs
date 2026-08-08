@@ -2,7 +2,8 @@
 {
     public class CommonQueueResponse
     {
-        public Guid EnquiryId { get; set; }
+        public Guid Id { get; set; }
+        public string EnquiryId { get; set; }
         public string CustomerName { get; set; } = string.Empty;
         public string CustomerNumber { get; set; } = string.Empty;
         public string VehicleNumber { get; set; } = string.Empty;
@@ -14,6 +15,7 @@
         public string CreatedByPhone { get; set; } = string.Empty;
         public string CreatedByRole { get; set; } = string.Empty;
         public string AgencyName { get; set; } = string.Empty;
+        public string AgencyNumber { get; set; } = string.Empty;
         public DateTime? SubmittedOn { get; set; }
         public int Priority { get; set; }
     }

@@ -99,13 +99,14 @@ namespace RenewOne.API.Controllers.Enquiry
         public async Task<IActionResult> Assign(
         Guid enquiryId,
         Guid employeeId,
-        string remarks,
+        string? remarks,
         CancellationToken cancellationToken)
         {
             var result = await _enquiryLogicService.AssignAsync(
                 enquiryId,
                 employeeId,
                 remarks,
+
                 cancellationToken);
 
             return StatusCode(result.StatusCode, result);
@@ -126,6 +127,47 @@ namespace RenewOne.API.Controllers.Enquiry
         public async Task<IActionResult> GetLedgerPaymentDetails(Guid enquiryId, CancellationToken cancellationToken)
         {
             var result = await _enquiryLogicService.GetEnquiryLedgerDetails(enquiryId, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpGet("admin/mytask")]
+        public async Task<IActionResult> GetTask([FromQuery] EnquiryFilter filter,CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.MyTaskEnquiries(filter,ct);
+            return StatusCode(result.StatusCode, result);
+
+        }
+
+        [HttpGet("admin/myquotequeue")]
+        public async Task<IActionResult> GetMyQuoteQueue([FromQuery] QuoteQueueFilter filter, CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.MyQuoteQueue(filter, ct);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpGet("admin/mypolicyqueue")]
+        public async Task<IActionResult> GetMyPolicyQueue([FromQuery] PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.MyPolicyQueue(filter, ct);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("admin/draftqueue")]
+        public async Task<IActionResult> DraftQueue([FromQuery] PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.DraftQueue(filter, ct);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("admin/dashboard")]
+        public async Task<IActionResult> GetAdminEnquiryDashboardAsync([FromQuery] EnquiryDashboardFilter filter, CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.GetAdminEnquiryDashboardAsync(filter, ct);
+            return StatusCode(result.StatusCode, result);
+        }
+
+        [HttpGet("admin/all-enquiries")]
+        public async Task<IActionResult> GetAllAdminEnquiriesAsync([FromQuery] PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.GetAllAdminEnquiriesAsync(filter, ct);
             return StatusCode(result.StatusCode, result);
         }
     }

@@ -58,9 +58,21 @@ namespace RenewOne.Persistence.Repositories.Enquiry
                 .Include(x => x.VehicleEnquiryDetails)
                     .ThenInclude(x => x.VehicleDetails)
                 .Include(x => x.CreatedByUser)
-                .Where(x =>
-                    x.Status == EnquiryStatus.Submitted.ToString() ||
-                    x.Status == EnquiryStatus.PolicyInProgress.ToString());
+                .Where(x => x.AssignedEmployeeId == null);
+        }
+
+        public IQueryable<EnquiryEntity> GetQuoteQueue()
+        {
+            return _dbContext.Enquiries
+                .AsNoTracking()
+                .Include(x => x.VehicleEnquiryDetails)
+                    .ThenInclude(x => x.VehicleType)
+                .Include(x => x.VehicleEnquiryDetails)
+                    .ThenInclude(x => x.VehicleDetails)
+                .Include(x => x.CreatedByUser)
+                .Include(x => x.InsuranceType)
+                .Include(x => x.Tenant)
+                .Include(x => x.EnquiryQuotes);
         }
 
         public IQueryable<EnquiryEntity> GetQueryable()

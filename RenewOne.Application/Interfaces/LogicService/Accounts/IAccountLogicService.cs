@@ -12,5 +12,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Accounts
         Task<Result<bool>> ApproveAgentAsync(Guid accountId);
         Task<Result<AgentDashboardResponse>> GetAgentsAsync(AgentFilterRequest request);
         Task<Result<PagedResponse<AgentLookupResponse>>> GetAgentLookupAsync(AgentLookupRequest request);
+        Task<Result<UserProfileResponse>> GetUserProfileAsync(Guid userId);
     }
 }
