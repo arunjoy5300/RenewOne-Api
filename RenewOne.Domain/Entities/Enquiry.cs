@@ -4,6 +4,7 @@ namespace RenewOne.Domain.Entities
 {
     public class Enquiry : BaseEntity
     {
+        public string? EnquiryNumber { get; set; } = string.Empty;
         public Guid TenantId { get; set; }
         public string CustomerName { get; set; } = string.Empty;
         public string CustomerNumber { get; set; } = string.Empty;
@@ -15,6 +16,8 @@ namespace RenewOne.Domain.Entities
         public Guid? SelectedQuoteId { get; set; }
         public int? CurrentStep { get; set; }
         public bool? AdminAssisted { get; set; }
+        public string? CancellationReason { get; set; }
+        public DateTime? CancellationDate { get; set; }
         public virtual Account? Tenant { get; set; }
         public virtual InsuranceType? InsuranceType { get; set; }
         public virtual VehicleEnquiryDetails? VehicleEnquiryDetails { get; set; }
@@ -26,5 +29,6 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<PolicyPayment> PolicyPayments { get; set; }
     = new HashSet<PolicyPayment>();
 
+        public virtual PolicyDetails? PolicyDetails { get; set; }
     }
 }

@@ -10,11 +10,13 @@ using RenewOne.Application.Interfaces.LogicService.AdminEntry.QRManaging;
 using RenewOne.Application.Interfaces.LogicService.Auth;
 using RenewOne.Application.Interfaces.LogicService.BankAccounts;
 using RenewOne.Application.Interfaces.LogicService.Class;
+using RenewOne.Application.Interfaces.LogicService.Dashboard;
 using RenewOne.Application.Interfaces.LogicService.Enquiry;
 using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.LogicService.Ledger;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
 using RenewOne.Application.Interfaces.LogicService.User;
+using RenewOne.Application.Interfaces.LogicService.Vendors;
 using RenewOne.Application.Interfaces.LogicService.Wallet;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry;
@@ -26,9 +28,11 @@ using RenewOne.Application.Interfaces.Repositories.BankAccounts;
 using RenewOne.Application.Interfaces.Repositories.Class;
 using RenewOne.Application.Interfaces.Repositories.Documents;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
+using RenewOne.Application.Interfaces.Repositories.Enquiry.PolicyDetails;
 using RenewOne.Application.Interfaces.Repositories.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Repositories.Users;
+using RenewOne.Application.Interfaces.Repositories.Vendor;
 using RenewOne.Application.Interfaces.Repositories.Wallet;
 using RenewOne.Application.Interfaces.Services.External.Cashfree;
 using RenewOne.Application.Interfaces.Services.External.R2;
@@ -43,11 +47,13 @@ using RenewOne.Application.LogicService.AdminEntry.QRManaging;
 using RenewOne.Application.LogicService.Auth;
 using RenewOne.Application.LogicService.BankAccounts;
 using RenewOne.Application.LogicService.Class;
+using RenewOne.Application.LogicService.Dashboard;
 using RenewOne.Application.LogicService.Enquiry;
 using RenewOne.Application.LogicService.Enquiry.VehicleEnquiry;
 using RenewOne.Application.LogicService.Ledgers;
 using RenewOne.Application.LogicService.PolicyPayments;
 using RenewOne.Application.LogicService.Users;
+using RenewOne.Application.LogicService.Vendors;
 using RenewOne.Application.LogicService.Wallet;
 using RenewOne.Infrastructure.Options;
 using RenewOne.Infrastructure.Services.External;
@@ -68,9 +74,11 @@ using RenewOne.Persistence.Repositories.BankAccounts;
 using RenewOne.Persistence.Repositories.Class;
 using RenewOne.Persistence.Repositories.Document;
 using RenewOne.Persistence.Repositories.Enquiry;
+using RenewOne.Persistence.Repositories.Enquiry.PolicyDetails;
 using RenewOne.Persistence.Repositories.Enquiry.VehicleEnquiry;
 using RenewOne.Persistence.Repositories.UserLedger;
 using RenewOne.Persistence.Repositories.Users;
+using RenewOne.Persistence.Repositories.Vendor;
 using RenewOne.Persistence.Repositories.Wallet;
 using Serilog;
 using System.Text;
@@ -190,6 +198,17 @@ builder.Services.AddScoped<IInsuranceCompanyRepository, InsuranceCompanyReposito
 builder.Services.AddScoped<IInsuranceCompanyLogicService, InsuranceCompanyLogicService>();
 builder.Services.AddScoped<ILedgerTransactionRepository, LedgerTransactionRepository>();
 builder.Services.AddScoped<ILedgerLogicService, LedgerLogicService>();
+builder.Services.AddScoped<IVendorRepository, VendorRepository>();
+builder.Services.AddScoped<IVendorLogicService,VendorLogicService>();
+builder.Services.AddScoped<IVendorTransactionRepository, VendorTransactionRepository>();
+builder.Services.AddScoped<IVendorTransactionLogicService, VendorTransactionLogicService>();
+builder.Services.AddScoped<IPolicyDetailsRepository, PolicyDetailsRepository>();
+builder.Services.AddScoped<IBankTransactionRepository, BankTransactionRepository>();
+builder.Services.AddSingleton<IEnquiryReportDefinitionProvider,EnquiryReportDefinitionProvider>();
+builder.Services.AddScoped<IEnquiryReportRepository,EnquiryReportRepository>();
+builder.Services.AddScoped<IEnquiryReportLogicService,EnquiryReportLogicService>();
+builder.Services.AddScoped<IDashboardLogicService, DashboardLogicService>();
+builder.Services.AddScoped<IInsuranceProductRepository, InsuranceProductRepository>();
 
 builder.Services.AddSignalR();
 
@@ -206,7 +225,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("NextJs", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .SetIsOriginAllowed(_ => true) // Replaces AllowAnyOrigin() to support credentials
+            .AllowCredentials()            // REQUIRED for SignalR negotiation & auth
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

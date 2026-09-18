@@ -6,6 +6,7 @@
         Yesterday = 2,
         ThisWeek = 3,
         ThisMonth = 4,
-        Custom = 5
+        Custom = 5,
+        ThisYear = 6
     }
 }

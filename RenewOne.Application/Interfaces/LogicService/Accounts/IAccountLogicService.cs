@@ -10,8 +10,11 @@ namespace RenewOne.Application.Interfaces.LogicService.Accounts
     {
         Task<Result<bool>> RegisterAgentAsync(AgentSignupRequest request);
         Task<Result<bool>> ApproveAgentAsync(Guid accountId);
-        Task<Result<AgentDashboardResponse>> GetAgentsAsync(AgentFilterRequest request);
+        Task<Result<AgentDashboardResponse>> GetAgentsAsync(AgentFilterRequest? request,CancellationToken ct);
         Task<Result<PagedResponse<AgentLookupResponse>>> GetAgentLookupAsync(AgentLookupRequest request);
         Task<Result<UserProfileResponse>> GetUserProfileAsync(Guid userId);
+        Task<Result<AgentAdminDetailsResponse>> GetAgentDetailsByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default);
+        Task<Result<AgentDashboardOverviewResponse>> GetAgentDashboardOverviewAsync(Guid accountId, CancellationToken cancellationToken = default);
+        Task<Result<List<AgentDropdownDto>>> GetAgentDropdownAsync(CancellationToken cancellationToken = default);
     }
 }

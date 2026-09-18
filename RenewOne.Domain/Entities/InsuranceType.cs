@@ -12,5 +12,6 @@ namespace RenewOne.Domain.Entities
         public virtual ICollection<Enquiry> Enquiries { get; set; } = new HashSet<Enquiry>();
         public virtual ICollection<QRMapping> QRMappings { get; set; }
         = new HashSet<QRMapping>();
+        public virtual ICollection<InsuranceProductDisplay> InsuranceProductDisplays { get; set; }
     }
 }

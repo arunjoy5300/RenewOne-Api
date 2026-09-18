@@ -31,9 +31,9 @@ namespace RenewOne.API.Controllers.Accounts
         }
         [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
         [HttpGet("agents")]
-        public async Task<IActionResult> GetAgents([FromQuery] AgentFilterRequest filter)
+        public async Task<IActionResult> GetAgents([FromQuery] AgentFilterRequest filter,CancellationToken ct)
         {
-            var result = await _accountLogicService.GetAgentsAsync(filter);
+            var result = await _accountLogicService.GetAgentsAsync(filter, ct);
             return StatusCode(result.StatusCode, result);
         }
         [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
@@ -49,5 +49,25 @@ namespace RenewOne.API.Controllers.Accounts
             var result = await _accountLogicService.GetUserProfileAsync(userId);
             return StatusCode(result.StatusCode, result);
         }
+        [HttpGet("admin/agent-details/{accountId}")]
+        public async Task<IActionResult> GetAgentDetails([FromRoute] Guid accountId)
+        {
+            var result = await _accountLogicService.GetAgentDetailsByAccountIdAsync(accountId);
+            return StatusCode(result.StatusCode, result);
+        }
+        [HttpGet("admin/agent-dashboard-overview/{accountId}")] //inner page
+        public async Task<IActionResult> GetAgentDashboardOverview([FromRoute] Guid accountId)
+        {
+            var result = await _accountLogicService.GetAgentDashboardOverviewAsync(accountId);
+            return StatusCode(result.StatusCode, result);
+        }
+        #region Agent Staff Dropdown
+        [HttpGet("dropdown")]
+        public async Task<IActionResult> GetAgentDropdown(CancellationToken cancellationToken = default)
+        {
+            var result = await _accountLogicService.GetAgentDropdownAsync(cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        #endregion
     }
 }

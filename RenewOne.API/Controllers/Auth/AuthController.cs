@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RenewOne.Application.Interfaces.LogicService.Auth;
 using LoginRequest = RenewOne.Application.DTOs.Request.Auth.LoginRequest;
 
@@ -17,6 +18,13 @@ namespace RenewOne.API.Controllers.Auth
         public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
         {
             var result = await _authLogicService.LoginAsync(loginRequest);
+            return StatusCode(result.StatusCode, result);
+        }
+        [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
+        [HttpPost("reset-agent-password/{accountId}")]
+        public async Task<IActionResult> ResetAgentPassword([FromRoute] Guid accountId)
+        {
+            var result = await _authLogicService.ResetAgentPasswordWithGeneratedAsync(accountId);
             return StatusCode(result.StatusCode, result);
         }
     }

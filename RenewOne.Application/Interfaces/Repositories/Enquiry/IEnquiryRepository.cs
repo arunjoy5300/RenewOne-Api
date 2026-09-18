@@ -10,5 +10,6 @@ namespace RenewOne.Application.Interfaces.Repositories.Enquiry
         IQueryable<EnquiryEntity> GetQueryable();
         void Update(EnquiryEntity enquiry);
         IQueryable<EnquiryEntity> GetQuoteQueue();
+        IQueryable<EnquiryEntity> GetCommonQueueQueryable();
     }
 }

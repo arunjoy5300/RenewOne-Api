@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
-using RenewOne.Domain.Enums;
 using EnquiryEntity = RenewOne.Domain.Entities.Enquiry;
 
 namespace RenewOne.Persistence.Repositories.Enquiry
@@ -53,26 +52,14 @@ namespace RenewOne.Persistence.Repositories.Enquiry
         public IQueryable<EnquiryEntity> GetCommonQueue()
         {
             return _dbContext.Enquiries
-                .Include(x => x.VehicleEnquiryDetails)
-                    .ThenInclude(x => x.VehicleType)
-                .Include(x => x.VehicleEnquiryDetails)
-                    .ThenInclude(x => x.VehicleDetails)
-                .Include(x => x.CreatedByUser)
+                .AsNoTracking()
                 .Where(x => x.AssignedEmployeeId == null);
         }
 
         public IQueryable<EnquiryEntity> GetQuoteQueue()
         {
             return _dbContext.Enquiries
-                .AsNoTracking()
-                .Include(x => x.VehicleEnquiryDetails)
-                    .ThenInclude(x => x.VehicleType)
-                .Include(x => x.VehicleEnquiryDetails)
-                    .ThenInclude(x => x.VehicleDetails)
-                .Include(x => x.CreatedByUser)
-                .Include(x => x.InsuranceType)
-                .Include(x => x.Tenant)
-                .Include(x => x.EnquiryQuotes);
+                .AsNoTracking();
         }
 
         public IQueryable<EnquiryEntity> GetQueryable()
@@ -91,6 +78,13 @@ namespace RenewOne.Persistence.Repositories.Enquiry
         public void Update(EnquiryEntity enquiry)
         {
             _dbContext.Enquiries.Update(enquiry);
+        }
+
+        public IQueryable<EnquiryEntity> GetCommonQueueQueryable()
+        {
+            return _dbContext.Enquiries
+                .AsNoTracking()
+                .IgnoreAutoIncludes();
         }
     }
 }

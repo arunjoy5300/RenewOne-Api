@@ -1,4 +1,5 @@
 ﻿using RenewOne.Application.Common.Pagination;
+using RenewOne.Domain.Enums;
 
 namespace RenewOne.Application.Filters.Enquiry
 {
@@ -9,6 +10,7 @@ namespace RenewOne.Application.Filters.Enquiry
         public Guid? VehicleTypeId { get; set; }
         public DateOnly? FromDate { get; set; }
         public DateOnly? ToDate { get; set; }
+        public DateFilterType? DateFilter { get; set; }
         public bool SortDescending { get; set; } = true;
     }
 }

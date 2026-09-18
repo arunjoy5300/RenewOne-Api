@@ -19,9 +19,8 @@ namespace RenewOne.Infrastructure.Services.User
         public Guid AccountId =>
             Guid.Parse(_httpContextAccessor.HttpContext!.User.FindFirst("AccountId")!.Value);
 
-        public string Role =>
-            _httpContextAccessor.HttpContext!.User.FindFirstValue(ClaimTypes.Role)
-            ?? throw new UnauthorizedAccessException("Role claim not found.");
+        public string? Role =>_httpContextAccessor.HttpContext?.User
+            .FindFirstValue(ClaimTypes.Role);
 
         public string? IpAddress =>
             _httpContextAccessor.HttpContext!.Connection.RemoteIpAddress?.ToString();

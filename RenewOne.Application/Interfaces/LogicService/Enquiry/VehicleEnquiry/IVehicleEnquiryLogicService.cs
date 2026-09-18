@@ -18,13 +18,8 @@ namespace RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry
         Task<Result<IEnumerable<DocumentListDto>>> ListUploadedDocuments(Guid enquiryId, CancellationToken ct);
         Task<Result<bool>> DeleteUploadedDocument(Guid documentId, CancellationToken ct);
         Task<Result<bool>> ReplaceFile(ReplaceFileDto replaceFileDto, CancellationToken ct);
-        Task<Result<PagedResponse<QuoteDto>>> ListVehicleQuotes(
-        ListVehicleQuotesRequest request,
-        CancellationToken cancellationToken = default);
-        Task<Result<bool>> SubmitVehicleQuoteByAdmin(
-            Guid enquiryId,
-            Guid quoteId,
-            CancellationToken cancellationToken = default);
+        Task<Result<PagedResponse<QuoteDto>>> ListVehicleQuotes(ListVehicleQuotesRequest request,CancellationToken cancellationToken = default);
+        Task<Result<bool>> SubmitVehicleQuoteByAdmin(Guid enquiryId,Guid quoteId,CancellationToken cancellationToken = default);
         Task<Result<bool>> AddVehicleQuote(AddVehicleQuoteRequest request, CancellationToken cancellationToken = default);
     }
 }

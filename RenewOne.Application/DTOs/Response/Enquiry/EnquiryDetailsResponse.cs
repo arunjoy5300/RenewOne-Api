@@ -1,4 +1,6 @@
-﻿namespace RenewOne.Application.DTOs.Response.Enquiry
+﻿using RenewOne.Application.DTOs.Response.RC;
+
+namespace RenewOne.Application.DTOs.Response.Enquiry
 {
     public class EnquiryDetailsResponse
     {
@@ -21,6 +23,8 @@
 
         public string CubicCapacity { get; set; } = string.Empty;
         public string CreatedBy { get; set; } = string.Empty;
+        public string AgencyName { get; set; } = string.Empty;
+        public string AgencyNumber { get; set; } = string.Empty;
         public string AssignedAgent { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -33,6 +37,8 @@
         public List<DocumentDto> Documents { get; set; } = [];
 
         public List<QuoteDto> Quotes { get; set; } = [];
+
+        public RcApiDto? RcDetails { get; set; }
     }
     public class DocumentDto
     {

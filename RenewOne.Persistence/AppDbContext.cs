@@ -41,6 +41,10 @@ namespace RenewOne.Persistence
         public DbSet<BankAccount> BankAccount { get; set; }
         public DbSet<BankTransaction> BankTransactions { get; set; }
         public DbSet<UserModulePermission> UserModulePermissions { get; set; }
+        public DbSet<Vendor> Vendors { get; set; }
+        public DbSet<VendorTransaction> VendorTransaction { get; set; }
+        public DbSet<PolicyDetails> PolicyDetails { get; set; }
+        public DbSet<InsuranceProductDisplay> InsuranceProductDisplays { get; set; }
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var entries = ChangeTracker
@@ -254,45 +258,8 @@ namespace RenewOne.Persistence
             );
 
 
-            modelBuilder.Entity<VehicleType>().HasData(
-                new VehicleType { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), TypeName = "Two Wheeler", Description = "Motorcycles and Scooters", IsActive = true, CreatedAt = seedDate },
-
-                new VehicleType { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), TypeName = "Car - Private", Description = "Private Four Wheeler", IsActive = true, CreatedAt = seedDate },
-                new VehicleType { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), TypeName = "Car - Taxi", Description = "Commercial Four Wheeler (Taxi)", IsActive = true, CreatedAt = seedDate },
-
-                new VehicleType { Id = Guid.Parse("44444444-4444-4444-4444-444444444444"), TypeName = "Auto - Private", Description = "Private Three Wheeler", IsActive = true, CreatedAt = seedDate },
-                new VehicleType { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), TypeName = "Auto - Taxi", Description = "Commercial Three Wheeler (Passenger)", IsActive = true, CreatedAt = seedDate },
-                new VehicleType { Id = Guid.Parse("66666666-6666-6666-6666-666666666666"), TypeName = "Auto - Goods", Description = "Commercial Three Wheeler (Goods)", IsActive = true, CreatedAt = seedDate },
-
-                new VehicleType { Id = Guid.Parse("77777777-7777-7777-7777-777777777777"), TypeName = "Commercial Heavy", Description = "Buses and Lorries", IsActive = true, CreatedAt = seedDate }
-            );
-
-            modelBuilder.Entity<InsuranceType>().HasData(
-                new InsuranceType
-                {
-                    Id = Guid.Parse("A1111111-1111-1111-1111-111111111111"),
-                    Name = "Vehicle Insurance",
-                    DisplayOrder = 1,
-                    IsActive = true,
-                    CreatedAt = seedDate
-                },
-                new InsuranceType
-                {
-                    Id = Guid.Parse("A2222222-2222-2222-2222-222222222222"),
-                    Name = "Health Insurance",
-                    DisplayOrder = 2,
-                    IsActive = true,
-                    CreatedAt = seedDate
-                },
-                new InsuranceType
-                {
-                    Id = Guid.Parse("A3333333-3333-3333-3333-333333333333"),
-                    Name = "Life Insurance",
-                    DisplayOrder = 3,
-                    IsActive = true,
-                    CreatedAt = seedDate
-                }
-            );
+            modelBuilder.Entity<Enquiry>()
+                .HasIndex(e => new { e.AssignedEmployeeId, e.CreatedAt });
         }
     }
 }

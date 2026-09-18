@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.PolicyPayment;
+using RenewOne.Application.DTOs.Response.PolicyPayment;
 using RenewOne.Application.DTOs.Response.QRManaging;
 using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
@@ -10,12 +11,14 @@ using RenewOne.Application.Interfaces.Repositories.AdminEntry.QRManaging;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
+using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
 
 namespace RenewOne.Application.LogicService.PolicyPayments
 {
     public class PolicyPaymentLogicService : IPolicyPaymentLogicService
     {
+        #region DI
         private readonly IPolicyPaymentRepository _policyPaymentRepository;
         private readonly ILogger<PolicyPaymentLogicService> _logger;
         private readonly IUnitOfWork _unitOfWork;
@@ -23,6 +26,9 @@ namespace RenewOne.Application.LogicService.PolicyPayments
         private readonly IEnquiryRepository _enquiryRepository;
         private readonly IEnquiryQuoteRepository _enquiryQuoteRepository;
         private readonly IQRMappingRepository _qrMappingRepository;
+        #endregion
+
+        #region Constructor
         public PolicyPaymentLogicService(
             IPolicyPaymentRepository policyPaymentRepository,
             ILogger<PolicyPaymentLogicService> logger,
@@ -40,6 +46,9 @@ namespace RenewOne.Application.LogicService.PolicyPayments
             _enquiryQuoteRepository = enquiryQuoteRepository;
             _qrMappingRepository = qrMappingRepository;
         }
+        #endregion
+
+        #region ApprovePolicyPaymentAsync
 
         public async Task<Result<string>> ApprovePolicyPaymentAsync(ApprovePolicyPaymentRequest request, CancellationToken cancellationToken = default)
         {
@@ -125,7 +134,9 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     500);
             }
         }
+        #endregion
 
+        #region RejectPolicyPaymentAsync
         public async Task<Result<string>> RejectPolicyPaymentAsync(RejectPolicyPaymentRequest request, CancellationToken cancellationToken = default)
         {
             await _unitOfWork.BeginTransactionAsync();
@@ -209,7 +220,9 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     500);
             }
         }
+        #endregion
 
+        #region GetQRSelectionAsync
         public async Task<Result<QRSelectionResponse>> GetQRSelectionAsync(
         Guid enquiryId,
         CancellationToken cancellationToken = default)
@@ -274,7 +287,7 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     AccountHolderName = bank.AccountHolderName,
                     AccountNumber = bank.AccountNumber,
                     IFSCCode = bank.IFSCCode,
-                    UpiId = bank.UpiId
+                    UpiId = mapping.QRMaster.UpiId
                 };
 
                 _logger.LogInformation(
@@ -297,5 +310,72 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     500);
             }
         }
+        #endregion
+
+        #region GetPolicyPaymentDetailsAsync Admin
+        public async Task<Result<PolicyPaymentDetailsDto>> GetPolicyPaymentDetails(Guid enquiryId, CancellationToken ct)
+        {
+            try
+            {
+                var policyPayment = await _policyPaymentRepository
+            .GetQueryable()
+            .Where(pp => pp.EnquiryId == enquiryId)
+            .Select(pp => new PolicyPaymentDetailsDto
+            {
+                PolicyPaymentId = pp.Id,
+                EnquiryId = $"ENQ-{pp.EnquiryId.ToString().Substring(pp.EnquiryId.ToString().Length - 4, 4).ToUpper()}",
+                FullName = pp.Enquiry.CustomerName,
+
+                VehicleNumber =
+                    pp.Enquiry.VehicleEnquiryDetails!
+                        .VehicleDetails!
+                        .VehicleNumber,
+
+                InsuranceCompanyName =
+                    pp.EnquiryQuote.InsuranceCompany.CompanyName,
+
+                PremiumAmount =
+                    pp.EnquiryQuote.Premium,
+
+                FinalPayableAmount =
+                    pp.EnquiryQuote.Premium - pp.EnquiryQuote.AgentPoints,
+
+                PaymentMode =
+                    pp.PaymentMode,
+
+                LedgerBalance =
+                    pp.Account.Ledger.AvailableBalance.ToString(),
+
+                TransactionId =
+                    pp.TransactionId,
+
+                Remarks =
+                    pp.Remarks,
+
+                SubmittedBy =
+                    pp.SubmittedByUser!.FullName,
+
+                SubmittedOn =
+                    pp.CreatedAt.ToString("dd MMM yyyy hh:mm tt")
+            })
+            .FirstOrDefaultAsync(ct);
+
+                if (policyPayment == null)
+                {
+                    return Result<PolicyPaymentDetailsDto>.NotFound(
+                        "Policy payment details not found.");
+                }
+
+                return Result<PolicyPaymentDetailsDto>.Success(
+                    policyPayment,
+                    "Policy payment details fetched successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching policy payment details for EnquiryId: {EnquiryId}", enquiryId);
+                return Result<PolicyPaymentDetailsDto>.Failure("An error occurred while fetching policy payment details.", 500);
+            }
+        }
+        #endregion
     }
 }

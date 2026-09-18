@@ -9,6 +9,7 @@ namespace RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry
         public Guid EnquiryId { get; set; }
         public bool UseLedger { get; set; }
         public string? TransactionId { get; set;}
+        public Guid? BankAccountId { get; set; }
         public string? Remarks { get; set; }
     }
 }

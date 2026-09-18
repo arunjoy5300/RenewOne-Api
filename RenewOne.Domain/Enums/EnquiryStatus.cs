@@ -9,6 +9,6 @@
         PaymentVerificationPending = 5,
         PolicyInProgress = 6,
         PolicyIssued = 7,
-        Closed = 8
+        Cancelled = 8
     }
 }

@@ -176,7 +176,7 @@ namespace RenewOne.Application.LogicService.Users
                     PhoneNumber = x.PhoneNumber,
                     Role = x.UserType,
                     Status = x.IsActive,
-                    ActiveTask = _enquiryRepository.GetQueryable().Count(e => e.AssignedEmployeeId == x.Id && e.Status != EnquiryStatus.PolicyIssued.ToString() && e.Status != EnquiryStatus.Closed.ToString()),
+                    ActiveTask = _enquiryRepository.GetQueryable().Count(e => e.AssignedEmployeeId == x.Id && e.Status != EnquiryStatus.PolicyIssued.ToString() && e.Status != EnquiryStatus.Cancelled.ToString()),
                     CompletedTask = _enquiryRepository.GetQueryable().Count(e => e.AssignedEmployeeId == x.Id && e.Status == EnquiryStatus.PolicyIssued.ToString()),
                     CreatedOn = x.CreatedAt
                 })
@@ -233,7 +233,7 @@ namespace RenewOne.Application.LogicService.Users
             var totalActiveTask = await enquiries.CountAsync(x =>
                 x.AssignedEmployeeId != null &&
                 x.Status != EnquiryStatus.PolicyIssued.ToString() &&
-                x.Status != EnquiryStatus.Closed.ToString());
+                x.Status != EnquiryStatus.Cancelled.ToString());
 
             var totalCompletedTask = await enquiries.CountAsync(x =>
                 x.AssignedEmployeeId != null &&
@@ -464,7 +464,7 @@ namespace RenewOne.Application.LogicService.Users
         #endregion
 
         #region Get My Staff List
-        public async Task<Result<IEnumerable<StaffResponse>>> GetMyStaffAsync(Guid accountId)
+        public async Task<Result<List<StaffResponse>>> GetMyStaffAsync(Guid accountId)
         {
             var staffList = await _userRepository.GetAgentStaffByAccountAsync(accountId);
 
@@ -477,16 +477,15 @@ namespace RenewOne.Application.LogicService.Users
                 PhoneNumber = s.PhoneNumber,
                 IsActive = s.IsActive,
                 CreatedAt = s.CreatedAt
-            });
+            }).ToList();
 
-            return Result<IEnumerable<StaffResponse>>.Success(response);
+            return Result<List<StaffResponse>>.Success(response);
         }
         #endregion
 
         #region List Staff with Filters
-        public async Task<Result<PagedResponse<StaffResponse>>> ListStaffWithFiltersAsync(StaffFilterRequest request)
+        public async Task<Result<PagedResponse<StaffResponse>>> ListStaffWithFiltersAsync(Guid accountId, StaffFilterRequest request)
         {
-            var accountId = _currentUser.AccountId;
             try
             {
                 var query = _userRepository.GetAllUsers()

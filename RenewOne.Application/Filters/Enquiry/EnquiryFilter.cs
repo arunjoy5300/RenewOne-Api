@@ -14,7 +14,7 @@ namespace RenewOne.Application.Filters.Enquiry
         public DateOnly? ToDate { get; set; }
         public Guid? AccountId { get; set; }
         public EnquirySortBy SortBy { get; set; } = EnquirySortBy.CreatedAt;
-
+        public DateFilterType DateFilter { get; set; }
         public SortDirection SortDirection { get; set; } = SortDirection.Desc;
     }
 }

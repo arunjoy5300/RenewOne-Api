@@ -17,6 +17,7 @@
         public string Address { get; set; }
 
         public string Pincode { get; set; }
+        public string IsApproved { get; set; }
 
         public string Status { get; set; }
 

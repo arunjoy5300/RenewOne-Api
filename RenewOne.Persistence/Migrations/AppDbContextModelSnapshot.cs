@@ -302,6 +302,12 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("UploadUserIpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("UploadedUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Url")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -309,6 +315,8 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EnquiryId");
+
+                    b.HasIndex("UploadedUserId");
 
                     b.ToTable("Documents");
                 });
@@ -325,6 +333,12 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid?>("AssignedEmployeeId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CancellationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -340,6 +354,9 @@ namespace RenewOne.Persistence.Migrations
 
                     b.Property<string>("CustomerNumber")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EnquiryNumber")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("InsuranceTypeId")
@@ -458,6 +475,60 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("InsuranceCompanies");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceProductDisplay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BadgeColor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BadgeText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IconKey")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("InsuranceTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RoutePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Subtitle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("VehicleTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InsuranceTypeId");
+
+                    b.ToTable("InsuranceProductDisplays");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceType", b =>
@@ -715,6 +786,51 @@ namespace RenewOne.Persistence.Migrations
                     b.ToTable("PaymentOrders");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.PolicyDetails", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedByUserIpAddress")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EnquiryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("PolicyEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PolicyNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly>("PolicyStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("EnquiryId")
+                        .IsUnique();
+
+                    b.ToTable("PolicyDetails");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.PolicyPayment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -727,6 +843,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("BankAccountId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -737,6 +856,10 @@ namespace RenewOne.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("PaymentMode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReferenceNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -768,6 +891,8 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
+
+                    b.HasIndex("BankAccountId");
 
                     b.HasIndex("EnquiryId");
 
@@ -1317,6 +1442,102 @@ namespace RenewOne.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.Vendor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BankAccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BankAccountId")
+                        .IsUnique()
+                        .HasFilter("[BankAccountId] IS NOT NULL");
+
+                    b.ToTable("Vendors");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.VendorTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EnquiryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PaymentMode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Remarks")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("TransactionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("VendorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VendorId");
+
+                    b.ToTable("VendorTransaction");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1459,7 +1680,7 @@ namespace RenewOne.Persistence.Migrations
             modelBuilder.Entity("RenewOne.Domain.Entities.BankTransaction", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.BankAccount", "BankAccount")
-                        .WithMany()
+                        .WithMany("BankTransactions")
                         .HasForeignKey("BankAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1475,7 +1696,13 @@ namespace RenewOne.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RenewOne.Domain.Entities.User", "UploadedUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedUserId");
+
                     b.Navigation("Enquiry");
+
+                    b.Navigation("UploadedUser");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Enquiry", b =>
@@ -1537,6 +1764,17 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceProductDisplay", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.InsuranceType", "InsuranceType")
+                        .WithMany("InsuranceProductDisplays")
+                        .HasForeignKey("InsuranceTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("InsuranceType");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.Ledger", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.Account", "Account")
@@ -1570,6 +1808,25 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.PolicyDetails", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.Enquiry", "Enquiry")
+                        .WithOne("PolicyDetails")
+                        .HasForeignKey("RenewOne.Domain.Entities.PolicyDetails", "EnquiryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Enquiry");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.PolicyPayment", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.Account", "Account")
@@ -1577,6 +1834,10 @@ namespace RenewOne.Persistence.Migrations
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("RenewOne.Domain.Entities.BankAccount", "BankAccount")
+                        .WithMany()
+                        .HasForeignKey("BankAccountId");
 
                     b.HasOne("RenewOne.Domain.Entities.Enquiry", "Enquiry")
                         .WithMany("PolicyPayments")
@@ -1602,6 +1863,8 @@ namespace RenewOne.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Account");
+
+                    b.Navigation("BankAccount");
 
                     b.Navigation("Enquiry");
 
@@ -1747,6 +2010,26 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("VehicleType");
                 });
 
+            modelBuilder.Entity("RenewOne.Domain.Entities.Vendor", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.BankAccount", "BankAccount")
+                        .WithOne("Vendor")
+                        .HasForeignKey("RenewOne.Domain.Entities.Vendor", "BankAccountId");
+
+                    b.Navigation("BankAccount");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.VendorTransaction", b =>
+                {
+                    b.HasOne("RenewOne.Domain.Entities.Vendor", "Vendor")
+                        .WithMany("VendorTransactions")
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Vendor");
+                });
+
             modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>
                 {
                     b.HasOne("RenewOne.Domain.Entities.Account", "Account")
@@ -1798,7 +2081,11 @@ namespace RenewOne.Persistence.Migrations
 
             modelBuilder.Entity("RenewOne.Domain.Entities.BankAccount", b =>
                 {
+                    b.Navigation("BankTransactions");
+
                     b.Navigation("QRMasters");
+
+                    b.Navigation("Vendor");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Enquiry", b =>
@@ -1808,6 +2095,8 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("Documents");
 
                     b.Navigation("EnquiryQuotes");
+
+                    b.Navigation("PolicyDetails");
 
                     b.Navigation("PolicyPayments");
 
@@ -1829,6 +2118,8 @@ namespace RenewOne.Persistence.Migrations
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceType", b =>
                 {
                     b.Navigation("Enquiries");
+
+                    b.Navigation("InsuranceProductDisplays");
 
                     b.Navigation("QRMappings");
 
@@ -1878,6 +2169,11 @@ namespace RenewOne.Persistence.Migrations
                     b.Navigation("QRMappings");
 
                     b.Navigation("UserTaskAllocations");
+                });
+
+            modelBuilder.Entity("RenewOne.Domain.Entities.Vendor", b =>
+                {
+                    b.Navigation("VendorTransactions");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using RenewOne.Application.Common.Helper;
 using RenewOne.Application.Common.Models;
 using RenewOne.Application.Common.Pagination;
 using RenewOne.Application.DTOs.Request.Document;
@@ -14,6 +15,7 @@ using RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.EnquiryQuote;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.PricingMaster;
+using RenewOne.Application.Interfaces.Repositories.BankAccounts;
 using RenewOne.Application.Interfaces.Repositories.Documents;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.Enquiry.VehicleEnquiry;
@@ -45,6 +47,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         private readonly IPolicyPaymentRepository _policyPaymentRepository;
         private readonly INotificationService _notificationService;
         private readonly ILedgerTransactionRepository _ledgerTransactionRepository;
+        private readonly IBankTransactionRepository _bankTransactionRepository;
         #endregion
 
         #region Constructor
@@ -63,7 +66,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             ICurrentUserService currentUser,
             IPolicyPaymentRepository policyPaymentRepository,
             INotificationService notificationService,
-            ILedgerTransactionRepository ledgerTransactionRepository)
+            ILedgerTransactionRepository ledgerTransactionRepository,
+            IBankTransactionRepository bankTransactionRepository)
         {
             _vehicleEnquiryRepository = vehicleEnquiryRepository;
             _rcApiService = rcApiService;
@@ -80,6 +84,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             _policyPaymentRepository = policyPaymentRepository;
             _notificationService = notificationService;
             _ledgerTransactionRepository = ledgerTransactionRepository;
+            _bankTransactionRepository = bankTransactionRepository;
         }
         #endregion
 
@@ -95,7 +100,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     x.VehicleEnquiryDetails != null &&
                     x.VehicleEnquiryDetails.VehicleDetails != null &&
                     x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber == vehicleNumber &&
-                    ( x.Status != EnquiryStatus.PolicyIssued.ToString() && x.Status != EnquiryStatus.Closed.ToString() ) &&
+                    ( x.Status != EnquiryStatus.PolicyIssued.ToString() && x.Status != EnquiryStatus.Cancelled.ToString() ) &&
                     x.CreatedAt >= DateTime.UtcNow.AddDays(-180));
 
             if (existingEnquiry != null)
@@ -104,6 +109,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     new VehicleEnquiryResponse
                     {
                         EnquiryId = existingEnquiry.Id,
+                        EnquiryNumber = existingEnquiry.EnquiryNumber,
                         Brand = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturerName,
                         CubicCapacity = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.CubicCapacity,
                         FuelType = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.FuelType,
@@ -111,6 +117,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         Model = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.Model,
                         CurrentStep = existingEnquiry.CurrentStep,
                         SelectedQuotedId = existingEnquiry.SelectedQuoteId,
+                        EngineNumber = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.EngineNumber,
+                        ChassisNumber = existingEnquiry.VehicleEnquiryDetails.VehicleDetails.ChassisNumber
                     });
             }
 
@@ -143,10 +151,10 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 }
             }
 
-            
             var enquiry = new Domain.Entities.Enquiry
             {
                 Id = Guid.NewGuid(),
+                EnquiryNumber = GenerateEnquiryNumber.GenerateEnquiryNumberAsync(),
                 TenantId = tenantId,
                 CustomerName = request.CustomerName,
                 CustomerNumber = request.CustomerNumber,
@@ -191,6 +199,17 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
             var success = await _vehicleEnquiryRepository.SaveChangesAsync();
 
+            await _notificationService.SendToRolesAsync(
+                        new NotificationMessage
+                        {
+                            Event = "EnquirySubmitted",
+                            Title = "Enquiry Submitted",
+                            Message = $"A new enquiry has been submitted. EnquiryId: {enquiry.Id}"
+                        },
+                        "SuperAdmin",
+                        "AdminEmployee",
+                        "Supervisor");
+
             if (!success)
             {
                 return Result<VehicleEnquiryResponse>.Failure(
@@ -201,6 +220,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             var response = new VehicleEnquiryResponse
             {
                 EnquiryId = enquiry.Id,
+                EnquiryNumber = enquiry.EnquiryNumber,
                 Brand = vehicle?.ManufacturerName,
                 Model = vehicle?.Model,
                 CubicCapacity = vehicle?.CubicCapacity,
@@ -300,6 +320,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     DocSide = request.DocSide,
                     Url = path,
                     IsActive = true,
+                    UploadedUserId = _currentUser.UserId,
+                    UploadUserIpAddress = _currentUser.IpAddress,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -646,7 +668,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     var balanceBefore = ledger.AvailableBalance;
 
-                    ledger.AvailableBalance -= enquiryQuote.Premium;
+                    ledger.AvailableBalance -= enquiryQuote.Premium - enquiryQuote.AgentPoints;
                     ledger.UpdatedAt = DateTime.UtcNow;
 
                     await _ledgerRepository.Update(ledger);
@@ -660,7 +682,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         BalanceBefore = balanceBefore,
                         BalanceAfter = ledger.AvailableBalance,
                         EnquiryId = enquiry.Id,
-                        ReferenceNo = enquiry.Id.ToString(),
+                        ReferenceNo = $"PP{Random.Shared.Next(10, 100):D2}",
                         Remarks = $"Policy payment for enquiry {enquiry.Id}",
                         CreatedByUserId = _currentUser.UserId,
                         CreatedByIpAddress = _currentUser.IpAddress,
@@ -702,8 +724,12 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         ? "Ledger"
                         : "BankTransfer",
                     TransactionId = request.TransactionId,
-                    Status = "Pending",
+                    ReferenceNumber = $"PP{Random.Shared.Next(10, 100):D2}",
+                    Status = _currentUser.Role == "SuperAdmin" || _currentUser.Role == "AdminEmployee" || _currentUser.Role == "Supervisor"
+                        ? "Approved"
+                        : "Pending",
                     Remarks = request.Remarks,
+                    BankAccountId = request.BankAccountId,
                     SubmittedByUserId = _currentUser.UserId,
                     SubmittedAt = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
@@ -711,6 +737,41 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 };
 
                 await _policyPaymentRepository.AddAsync(policyPayment);
+
+                if (!request.UseLedger)
+                {
+                    if (!request.BankAccountId.HasValue)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+
+                        return Result<string>.Failure(
+                            "Bank account is required for bank transfer.",
+                            400);
+                    }
+
+                    var bankTransaction = new BankTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        BankAccountId = request.BankAccountId.Value,
+
+                        TransactionType = "Credit",
+                        Amount = enquiryQuote.Premium,
+
+                        Category = "PolicyPayment",
+                        Description = $"Policy payment received for enquiry {enquiry.Id}",
+
+                        PolicyPaymentId = policyPayment.Id,
+                        VendorId = null,
+                        SalaryId = null,
+                        UserId = _currentUser.UserId,
+
+                        TransactionDate = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    await _bankTransactionRepository.AddAsync(bankTransaction, cancellationToken);
+                }
 
                 _logger.LogInformation(
                     "Policy payment created successfully. PolicyPaymentId: {PolicyPaymentId}",
@@ -728,6 +789,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     enquiry.Status =
                     EnquiryStatus.PaymentVerificationPending.ToString();
+                    enquiry.AssignedEmployeeId = null;
                 }
 
                 enquiry.UpdatedAt = DateTime.UtcNow;
@@ -891,6 +953,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 FileName = doc.DocType + "_" + doc.DocSide,
                 DocType = doc.DocType,
                 DocSide = doc.DocSide,
+                UploadedUserIpAddress = doc.UploadUserIpAddress,
+                UploadedUserName = doc.UploadedUser?.FullName,
                 Url = doc.Url
             }).ToList();
 

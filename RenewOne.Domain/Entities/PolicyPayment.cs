@@ -6,6 +6,7 @@ namespace RenewOne.Domain.Entities
     {
         public Guid EnquiryId { get; set; }
         public Guid EnquiryQuoteId { get; set; }
+        public string ReferenceNumber { get; set; }
         public Guid AccountId { get; set; }
         public decimal Amount { get; set; }
         public string PaymentMode { get; set; }
@@ -21,6 +22,8 @@ namespace RenewOne.Domain.Entities
         public virtual Account Account { get; set; } = null!;
         public virtual User SubmittedByUser { get; set; } = null!;
         public virtual User VerifiedByUser { get; set; }
+        public Guid? BankAccountId { get; set; }
+        public virtual BankAccount? BankAccount { get; set; }
 
     }
 }

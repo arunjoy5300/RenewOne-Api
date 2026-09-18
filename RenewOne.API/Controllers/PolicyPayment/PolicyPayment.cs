@@ -43,5 +43,17 @@ namespace RenewOne.API.Controllers.PolicyPayment
 
             return StatusCode(result.StatusCode, result);
         }
+
+        [HttpGet("{enquiryId:guid}/details")]
+        public async Task<IActionResult> GetPolicyPaymentDetails(
+            Guid enquiryId,
+            CancellationToken cancellationToken)
+        {
+            var result = await _policyPaymentLogicService.GetPolicyPaymentDetails(
+                enquiryId,
+                cancellationToken);
+
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

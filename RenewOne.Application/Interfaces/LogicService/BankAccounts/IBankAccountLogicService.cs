@@ -16,7 +16,7 @@ namespace RenewOne.Application.Interfaces.LogicService.BankAccounts
 
         Task<Result<BankAccountResponse>> GetByIdAsync(Guid id);
 
-        Task<Result<PagedResponse<BankAccountResponse>>> GetAllAsync(
-            BankAccountFilter filter);
+        Task<Result<PagedResponse<BankAccountResponse>>> GetAllAsync(BankAccountFilter filter);
+        Task<Result<BankTransactionResponse>> GetBankTransactionsAsync(BankTransactionFilterRequest? filter, CancellationToken cancellationToken = default);
     }
 }

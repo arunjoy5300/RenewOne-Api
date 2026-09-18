@@ -8,9 +8,12 @@ using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Accounts;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
 using RenewOne.Application.Interfaces.Repositories.Class;
+using RenewOne.Application.Interfaces.Repositories.Enquiry;
+using RenewOne.Application.Interfaces.Repositories.Enquiry.PolicyDetails;
 using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Repositories.Users;
 using RenewOne.Application.Interfaces.Repositories.Wallet;
+using RenewOne.Application.Interfaces.Services.LoggedUser;
 using RenewOne.Domain.Entities;
 
 namespace RenewOne.Application.LogicService.Accounts
@@ -24,6 +27,9 @@ namespace RenewOne.Application.LogicService.Accounts
         private readonly IWalletRepository _walletRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILedgerRepository _ledgerRepository;
+        private readonly IEnquiryRepository _enquiryRepository;
+        private readonly IPolicyDetailsRepository _policyRepository;
+        private readonly ICurrentUserService _currentUserService;
         #endregion
 
         #region Constructor
@@ -33,7 +39,10 @@ namespace RenewOne.Application.LogicService.Accounts
             IAgentClassRepository agentClassRepository,
             IWalletRepository walletRepository,
             IUnitOfWork unitOfWork,
-            ILedgerRepository ledgerRepository)
+            ILedgerRepository ledgerRepository,
+            IEnquiryRepository enquiryRepository,
+            IPolicyDetailsRepository policyRepository,
+            ICurrentUserService currentUserService)
         {
             _userRepository = userRepository;
             _accountRepository = accountRepository;
@@ -41,6 +50,9 @@ namespace RenewOne.Application.LogicService.Accounts
             _walletRepository = walletRepository;
             _unitOfWork = unitOfWork;
             _ledgerRepository = ledgerRepository;
+            _enquiryRepository = enquiryRepository;
+            _policyRepository = policyRepository;
+            _currentUserService = currentUserService;
         }
         #endregion
 
@@ -66,90 +78,104 @@ namespace RenewOne.Application.LogicService.Accounts
         #endregion
 
         #region GetAgentsAsync
-        public async Task<Result<AgentDashboardResponse>> GetAgentsAsync(AgentFilterRequest filter)
+        public async Task<Result<AgentDashboardResponse>> GetAgentsAsync(AgentFilterRequest? filter,CancellationToken cancellationToken = default)
         {
-            var query = _accountRepository
-                .GetQueryable()
-                .Where(x => x.Users.Any(u => u.UserType == "Agent"));
+            // 1. Sanitize & clamp pagination inputs to prevent DoS / negative offset
+            filter ??= new AgentFilterRequest();
 
-            // Search
+            const int defaultPageSize = 10;
+            const int maxPageSize = 100;
+
+            var pageNumber = filter.PageNumber < 1 ? 1 : filter.PageNumber;
+            var pageSize = filter.PageSize < 1 ? defaultPageSize : Math.Min(filter.PageSize, maxPageSize);
+
+            // 2. Base query with AsNoTracking for read-only query performance
+            const string agentUserType = "Agent";
+            var baseAgentQuery = _accountRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.Users.Any(u => u.UserType == agentUserType));
+
+            var filteredQuery = baseAgentQuery;
+
+            // 3. Search filter using EF.Functions for database-side case-insensitive search
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                var search = filter.Search.Trim().ToLower();
+                var search = filter.Search.Trim();
 
-                query = query.Where(x =>
-                    x.AgentName.ToLower().Contains(search) ||
-                    x.Email.ToLower().Contains(search) ||
+                filteredQuery = filteredQuery.Where(x =>
+                    EF.Functions.Like(x.AgentName, $"%{search}%") ||
+                    EF.Functions.Like(x.Email, $"%{search}%") ||
                     x.ContactNumber.Contains(search) ||
                     x.Code.Contains(search));
             }
 
-            // Status Filter
+            // 4. Status Filter
             if (!string.IsNullOrWhiteSpace(filter.Status))
             {
-                switch (filter.Status)
+                filteredQuery = filter.Status.Trim().ToLowerInvariant() switch
                 {
-                    case "PendingApproval":
-                        query = query.Where(x => x.IsActive == false && x.Users.Any(u => u.IsActive == false));
-                        break;
-
-                    case "Active":
-                        query = query.Where(x => x.IsActive);
-                        break;
-
-                    case "Inactive":
-                        query = query.Where(x => !x.IsActive );
-                        break;
-                }
+                    "pendingapproval" or "pending" => filteredQuery.Where(x => !x.IsActive && x.Users.Any(u => !u.IsActive)),
+                    "active" => filteredQuery.Where(x => x.IsActive),
+                    "inactive" => filteredQuery.Where(x => !x.IsActive),
+                    _ => filteredQuery
+                };
             }
 
-            // Sorting
-            query = filter.SortBy?.ToLower() switch
+            // 5. Sorting
+            var isDescending = string.Equals(filter.SortOrder?.Trim(), "desc", StringComparison.OrdinalIgnoreCase);
+
+            filteredQuery = filter.SortBy?.Trim().ToLowerInvariant() switch
             {
-                "name" => filter.SortOrder == "desc"
-                    ? query.OrderByDescending(x => x.AgentName)
-                    : query.OrderBy(x => x.AgentName),
+                "name" => isDescending
+                    ? filteredQuery.OrderByDescending(x => x.AgentName)
+                    : filteredQuery.OrderBy(x => x.AgentName),
 
-                "joined" => filter.SortOrder == "desc"
-                    ? query.OrderByDescending(x => x.CreatedAt)
-                    : query.OrderBy(x => x.CreatedAt),
+                "joined" or "date" => isDescending
+                    ? filteredQuery.OrderByDescending(x => x.CreatedAt)
+                    : filteredQuery.OrderBy(x => x.CreatedAt),
 
-                _ => query.OrderByDescending(x => x.CreatedAt)
+                _ => filteredQuery.OrderByDescending(x => x.CreatedAt)
             };
 
-            // Dashboard Summary
-            var allAgents = _accountRepository
-                .GetQueryable()
-                .Where(x => x.Users.Any(u => u.UserType == "Agent-"));
-
+            // 6. Summary metrics calculated from base query
             var summary = new AgentDashboardSummary
             {
-                ActiveAgents = await allAgents.CountAsync(x => x.IsActive),
+                ActiveAgents = await baseAgentQuery
+                    .CountAsync(x => x.IsActive, cancellationToken),
 
-                PendingApprovals = await allAgents.CountAsync(x =>
-                    !x.IsActive && !x.Users.Any(u => u.IsActive)),
+                PendingApprovals = await baseAgentQuery
+                    .CountAsync(x => !x.IsActive && x.Users.Any(u => !u.IsActive), cancellationToken)
             };
 
-            // Pagination
-            var totalRecords = await query.CountAsync();
+            // 7. Pagination and projected fetch
+            var totalRecords = await filteredQuery.CountAsync(cancellationToken);
 
-            var items = await query
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .Select(x => new AgentListItem
-                {
-                    AccountId = x.Id,
-                    AgentId = x.Code,
-                    AgentName = x.AgentName,
-                    AgencyName = x.AgentName,
-                    Email = x.Email,
-                    PhoneNumber = x.ContactNumber,
-                    Address = x.Address,
-                    Pincode = x.Pincode,
-                    JoinedOn = x.CreatedAt,
-                    Status = x.IsActive ? "Active" : "Inactive"
-                })
-                .ToListAsync();
+            var items = totalRecords > 0
+                ? await filteredQuery
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(x => new AgentListItem
+                    {
+                        AccountId = x.Id,
+                        AgentId = x.Code,
+                        AgentName = x.AgentName,
+                        AgencyName = x.AgentName,
+                        Email = x.Email,
+                        PhoneNumber = x.ContactNumber,
+                        Address = x.Address,
+                        Pincode = x.Pincode,
+                        JoinedOn = x.CreatedAt,
+                        Status = !x.IsActive && x.Users.Any(u => !u.IsActive)
+                            ? "Pending"
+                            : x.IsActive ? "Active" : "Inactive"
+                    })
+                    .ToListAsync(cancellationToken)
+                : [];
+
+            var totalPages = totalRecords > 0
+                ? (int)Math.Ceiling((double)totalRecords / pageSize)
+                : 0;
 
             var response = new AgentDashboardResponse
             {
@@ -157,16 +183,16 @@ namespace RenewOne.Application.LogicService.Accounts
                 Agents = new PagedResponse<AgentListItem>
                 {
                     Items = items,
-                    PageNumber = filter.PageNumber,
-                    PageSize = filter.PageSize,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
                     TotalRecords = totalRecords,
-                    TotalPages = (int)Math.Ceiling((double)totalRecords / filter.PageSize)
+                    TotalPages = totalPages
                 }
             };
 
             return Result<AgentDashboardResponse>.Success(
                 response,
-                "Agents fetched successfully");
+                "Agents fetched successfully.");
         }
         #endregion
 
@@ -193,6 +219,10 @@ namespace RenewOne.Application.LogicService.Accounts
                     return Result<bool>.Failure("Basic agent class configuration missing", 500);
                 }
 
+                var isAdminCreated = _currentUserService.Role is "SuperAdmin"
+                        or "Supervisor"
+                        or "AdminEmployee";
+
                 var newAccount = new Account
                 {
                     Id = Guid.NewGuid(),
@@ -202,8 +232,10 @@ namespace RenewOne.Application.LogicService.Accounts
                     Email = request.Email,
                     ContactNumber = request.ContactNumber,
                     Pincode = request.Pincode,
-                    Address = request.Address
+                    Address = request.Address,
+                    IsActive = isAdminCreated
                 };
+
 
                 var newAgent = new User
                 {
@@ -214,7 +246,7 @@ namespace RenewOne.Application.LogicService.Accounts
                     Email = request.Email,
                     PhoneNumber = request.ContactNumber,
                     UserType = "Agent",
-                    IsActive = false,
+                    IsActive = isAdminCreated,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
                 };
 
@@ -356,6 +388,233 @@ namespace RenewOne.Application.LogicService.Accounts
                 AgencyName = user.Account?.AgentName
             };
             return Result<UserProfileResponse>.Success(response, "User profile fetched successfully");
+        }
+        #endregion
+
+        #region GetAgentDetailsByAccountIdAsync
+        public async Task<Result<AgentAdminDetailsResponse>> GetAgentDetailsByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default)
+        {
+            // Direct projection with AsNoTracking to prevent memory overhead & change tracking
+            var agentDetails = await _accountRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.Id == accountId && x.Users.Any(u => u.UserType == "Agent"))
+                .Select(x => new AgentAdminDetailsResponse
+                {
+                    AccountId = x.Id,
+                    AgentCode = x.Code,
+                    AgentName = x.AgentName,
+                    AgencyName = x.AgentName,
+                    PhoneNumber = x.ContactNumber,
+                    Email = x.Email,
+                    JoinedDate = x.CreatedAt,
+                    Address = x.Address,
+                    IsActive = x.IsActive,
+                    AgentClassName = x.AgentClass != null ? x.AgentClass.ClassName : null
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (agentDetails is null)
+            {
+                return Result<AgentAdminDetailsResponse>.Failure("Agent account not found.");
+            }
+
+            return Result<AgentAdminDetailsResponse>.Success(
+                agentDetails,
+                "Agent details fetched successfully.");
+        }
+        #endregion
+
+        #region GetAgentDashboardOverviewAsync
+        public async Task<Result<AgentDashboardOverviewResponse>> GetAgentDashboardOverviewAsync(Guid accountId,CancellationToken cancellationToken = default)
+        {
+            var now = DateTime.UtcNow;
+            var startOfCurrentMonth = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var startOfLastMonth = startOfCurrentMonth.AddMonths(-1);
+
+            // 1. Validate Agent Existence
+            var agentExists = await _accountRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .AnyAsync(x => x.Id == accountId, cancellationToken);
+
+            if (!agentExists)
+            {
+                return Result<AgentDashboardOverviewResponse>.Failure("Agent account not found.");
+            }
+
+            // 2. Business Summary (Current Month & MoM Growth)
+            var currentMonthEnquiriesCount = await _enquiryRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .CountAsync(x => x.TenantId == accountId && x.CreatedAt >= startOfCurrentMonth, cancellationToken);
+
+            var lastMonthEnquiriesCount = await _enquiryRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .CountAsync(x => x.TenantId == accountId && x.CreatedAt >= startOfLastMonth && x.CreatedAt < startOfCurrentMonth, cancellationToken);
+
+            double growthPercent = lastMonthEnquiriesCount == 0
+                ? (currentMonthEnquiriesCount > 0 ? 100.0 : 0.0)
+                : Math.Round(((double)(currentMonthEnquiriesCount - lastMonthEnquiriesCount) / lastMonthEnquiriesCount) * 100, 1);
+
+            var policiesCompleted = await _policyRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .CountAsync(x => x.Enquiry.TenantId == accountId && x.Enquiry.Status == "PolicyIssued" && x.CreatedAt >= startOfCurrentMonth, cancellationToken);
+
+            var quoteInProgress = await _enquiryRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .CountAsync(x => x.TenantId == accountId && (x.Status == "QuoteInProgress") && x.CreatedAt >= startOfCurrentMonth, cancellationToken);
+
+            var policyInProgress = await _enquiryRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .CountAsync(x => x.TenantId == accountId && (x.Status == "PolicyInProgress") && x.CreatedAt >= startOfCurrentMonth, cancellationToken);
+
+            // 3. Revenue Summary (GWP & Commissions)
+            var monthlySales = await _policyRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.Enquiry.TenantId == accountId && x.CreatedAt >= startOfCurrentMonth)
+                .SumAsync(x => (decimal?)x.Enquiry.PolicyPayments.Sum(p => p.Amount), cancellationToken) ?? 0m;
+
+            var lifetimeSales = await _policyRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.Enquiry.TenantId == accountId)
+                .SumAsync(x => (decimal?)x.Enquiry.PolicyPayments.Sum(p => p.Amount), cancellationToken) ?? 0m;
+
+            //var monthlyProfit = await _enquiryRepository
+            //    .GetQueryable()
+            //    .AsNoTracking()
+            //    .Where(x => x.TenantId == accountId && x.CreatedAt >= startOfCurrentMonth)
+            //    .SumAsync(x => (decimal?)x.EnquiryQuotes, cancellationToken) ?? 0m;
+
+            //var lifetimeProfit = await _commissionRepository
+            //    .GetQueryable()
+            //    .AsNoTracking()
+            //    .Where(x => x.AccountId == accountId)
+            //    .SumAsync(x => (decimal?)x.NetAmount, cancellationToken) ?? 0m;
+
+            //var companyPayable = await _ledgerRepository
+            //    .GetQueryable()
+            //    .AsNoTracking()
+            //    .Where(x => x.AccountId == accountId && x.Type == "CompanyPayable" && !x.IsSettled)
+            //    .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+            //var commissionEarned = await _commissionRepository
+            //    .GetQueryable()
+            //    .AsNoTracking()
+            //    .Where(x => x.AccountId == accountId && x.Status == "Earned" && x.CreatedAt >= startOfCurrentMonth)
+            //    .SumAsync(x => (decimal?)x.CommissionAmount, cancellationToken) ?? 0m;
+
+            // 4. Financial & Wallet Overview
+            //var wallet = await _walletRepository
+            //    .()
+            //    .AsNoTracking()
+            //    .Where(x => x.tena == accountId)
+            //    .Select(w => new
+            //    {
+            //        w.Balance,
+            //        w.CreditLimit,
+            //        w.OutstandingAmount,
+            //        w.LastRechargeAmount,
+            //        w.LastRechargeDate
+            //    })
+            //    .FirstOrDefaultAsync(cancellationToken);
+
+            // 5. Recent Enquiries (Latest 5)
+            var recentEnquiries = await _enquiryRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.TenantId == accountId)
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(5)
+                .Select(x => new RecentEnquiryDto
+                {
+                    Id = x.Id,
+                    CustomerName = x.CustomerName,
+                    InsuranceType = x.InsuranceType.Name,
+                    Status = x.Status,
+                    //Premium = x.EnquiryQuotes.Any() ? x.EnquiryQuotes.Sum(eq => eq.) : 0m
+                })
+                .ToListAsync(cancellationToken);
+
+            //6.Recent Policies(Latest 5)
+            var recentPolicies = await _policyRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.Enquiry.TenantId == accountId)
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(5)
+                .Select(x => new RecentPolicyDto
+                {
+                    PolicyId = x.Id,
+                    PolicyNo = x.PolicyNumber,
+                    CustomerName = x.Enquiry.CustomerName,
+                    //InsurerName = x.Enquiry.PolicyDetails.InsurerName,
+                    Premium = x.Enquiry.EnquiryQuotes.Where(p => p.IsSelected == true).Sum(p => p.Premium)
+                })
+                .ToListAsync(cancellationToken);
+
+            var response = new AgentDashboardOverviewResponse
+            {
+                BusinessSummary = new BusinessSummaryDto
+                {
+                    TotalEnquiries = currentMonthEnquiriesCount,
+                    GrowthPercentage = growthPercent,
+                    PoliciesCompleted = policiesCompleted,
+                    QuoteInProgress = quoteInProgress,
+                    PolicyInProgress = policyInProgress
+                },
+                RevenueSummary = new RevenueSummaryDto
+                {
+                    MonthlySales = monthlySales,
+                    LifetimeSales = lifetimeSales,
+                    //MonthlyProfit = monthlyProfit,
+                    //LifetimeProfit = lifetimeProfit,
+                    //CompanyPayable = companyPayable,
+                    //CommissionEarned = commissionEarned
+                },
+                //FinancialOverview = new FinancialOverviewDto
+                //{
+                //    WalletBalance = wallet?.Balance ?? 0m,
+                //    CreditLimit = wallet?.CreditLimit ?? 0m,
+                //    LastRechargeAmount = wallet?.LastRechargeAmount ?? 0m,
+                //    LastRechargeDate = wallet?.LastRechargeDate,
+                //    OutstandingAmount = wallet?.OutstandingAmount ?? 0m
+                //},
+                RecentEnquiries = recentEnquiries,
+                RecentPolicies = recentPolicies
+            };
+
+            return Result<AgentDashboardOverviewResponse>.Success(response, "Agent dashboard overview retrieved successfully.");
+        }
+        #endregion
+
+        #region AgentStaff Dropdown
+        public async Task<Result<List<AgentDropdownDto>>> GetAgentDropdownAsync(CancellationToken cancellationToken = default)
+        {
+            var accountId = _currentUserService.AccountId;
+
+            var agents = await _userRepository
+                .GetAllUsers()
+                .AsNoTracking()
+                .Where(x =>
+                    x.AccountId == accountId &&
+                    x.UserType == "Staff" &&
+                    x.IsActive)
+                .OrderBy(x => x.FullName)
+                .Select(x => new AgentDropdownDto(
+                    x.Id,
+                    x.FullName))
+                .ToListAsync(cancellationToken);
+
+            return Result<List<AgentDropdownDto>>.Success(
+                agents,
+                "Agents fetched successfully.");
         }
         #endregion
     }

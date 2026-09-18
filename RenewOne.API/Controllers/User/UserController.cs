@@ -11,42 +11,37 @@ namespace RenewOne.API.Controllers.User
     [ApiController]
     public class UserController : ControllerBase
     {
-        private Guid CurrentUserAccountId => Guid.Parse(User.FindFirst("AccountId")?.Value ?? Guid.Empty.ToString());
         private readonly IUserLogicService _userLogicService;
         public UserController(IUserLogicService userLogicService)
         {
             _userLogicService = userLogicService;
         }
 
-        [Authorize(Roles ="Agent")]
         [HttpPost("create-staff")]
         public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest request)
         {
-            var result = await _userLogicService.CreateStaffAsync(request, CurrentUserAccountId);
+            var result = await _userLogicService.CreateStaffAsync(request, request.AccountId);
             return StatusCode(result.StatusCode, result);
         }
 
-        [Authorize(Roles = "Agent,Staff")]
-        [HttpGet("list-staff")]
-        public async Task<IActionResult> GetMyStaff()
+        [HttpGet("list-staff/{accountId}")]
+        public async Task<IActionResult> GetMyStaff(Guid accountId)
         {
-            var result = await _userLogicService.GetMyStaffAsync(CurrentUserAccountId);
+            var result = await _userLogicService.GetMyStaffAsync(accountId);
             return StatusCode(result.StatusCode, result);
         }
 
-        [Authorize(Roles = "Agent,Staff")]
-        [HttpGet("list-all-staffs")]
-        public async Task<IActionResult> ListStaffWithFilters([FromQuery] StaffFilterRequest request)
+        [HttpGet("list-all-staffs/{accountId}")]
+        public async Task<IActionResult> ListStaffWithFilters(Guid accountId, [FromQuery] StaffFilterRequest request)
         {
-            var result = await _userLogicService.ListStaffWithFiltersAsync(request);
+            var result = await _userLogicService.ListStaffWithFiltersAsync(accountId, request);
             return StatusCode(result.StatusCode, result);
         }
 
-        [Authorize(Roles = "Agent")]
-        [HttpPut("toggle-status/{id}")]
-        public async Task<IActionResult> ToggleStatus(Guid id)
+        [HttpPut("{accountId}/toggle-status/{id}")]
+        public async Task<IActionResult> ToggleStatus(Guid accountId, Guid id)
         {
-            var result = await _userLogicService.ToggleStaffStatusAsync(id, CurrentUserAccountId);
+            var result = await _userLogicService.ToggleStaffStatusAsync(id, accountId);
             return StatusCode(result.StatusCode, result);
         }
 
@@ -82,7 +77,7 @@ namespace RenewOne.API.Controllers.User
             return StatusCode(result.StatusCode, result);
         }
         [HttpGet("admin/employee-rights/{id}")]
-        [Authorize(Roles = "SuperAdmin,Supervisor")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
 
         public async Task<IActionResult> GetEmployeeRights(Guid id)
         {

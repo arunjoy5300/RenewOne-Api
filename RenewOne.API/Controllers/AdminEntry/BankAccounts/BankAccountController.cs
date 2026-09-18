@@ -66,5 +66,12 @@ namespace RenewOne.API.Controllers.AdminEntry.BankAccounts
 
             return StatusCode(result.StatusCode, result);
         }
+        [HttpGet("transactions")]
+        public async Task<IActionResult> GetBankTransactions(
+            [FromQuery] BankTransactionFilterRequest? filter, CancellationToken cancellationToken)
+        {
+            var result = await _logicService.GetBankTransactionsAsync(filter, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
     }
 }

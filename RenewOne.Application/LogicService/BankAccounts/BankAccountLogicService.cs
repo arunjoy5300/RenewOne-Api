@@ -14,15 +14,28 @@ namespace RenewOne.Application.LogicService.BankAccounts
 {
     public class BankAccountLogicService : IBankAccountLogicService
     {
+        #region DI
         private readonly IBankAccountRepository _bankAccountRepository;
         private readonly ILogger<BankAccountLogicService> _logger;
         private readonly IUnitOfWork _unitOfWork;
-        public BankAccountLogicService(IBankAccountRepository bankAccountRepository, ILogger<BankAccountLogicService> logger, IUnitOfWork unitOfWork)
+        private readonly IBankTransactionRepository _transactionRepository;
+        #endregion
+
+        #region Constructor
+        public BankAccountLogicService(
+            IBankAccountRepository bankAccountRepository, 
+            ILogger<BankAccountLogicService> logger, 
+            IUnitOfWork unitOfWork, 
+            IBankTransactionRepository transactionRepository)
         {
             _bankAccountRepository = bankAccountRepository;
             _logger = logger;
             _unitOfWork = unitOfWork;
+            _transactionRepository = transactionRepository;
         }
+        #endregion
+
+        #region Create Bank Account
         public async Task<Result<Guid>> CreateAsync(CreateBankAccountRequest request)
         {
             _logger.LogInformation("Creating new bank account.");
@@ -95,6 +108,7 @@ namespace RenewOne.Application.LogicService.BankAccounts
                     500);
             }
         }
+        #endregion
 
         public async Task<Result<PagedResponse<BankAccountResponse>>> GetAllAsync(BankAccountFilter filter)
         {
@@ -325,6 +339,155 @@ namespace RenewOne.Application.LogicService.BankAccounts
                     "An error occurred while updating bank account status.",
                     500);
             }
+        }
+
+        public async Task<Result<BankTransactionResponse>> GetBankTransactionsAsync(BankTransactionFilterRequest? filter,CancellationToken cancellationToken = default)
+        {
+            filter ??= new BankTransactionFilterRequest();
+
+            // 1. Pagination bounds clamping
+            const int defaultPageSize = 10;
+            const int maxPageSize = 100;
+            var pageNumber = filter.PageNumber < 1 ? 1 : filter.PageNumber;
+            var pageSize = filter.PageSize < 1 ? defaultPageSize : Math.Min(filter.PageSize, maxPageSize);
+
+            // 2. Base Query with AsNoTracking
+            var query = _transactionRepository
+                .GetQueryable()
+                .AsNoTracking();
+
+            // 3. Bank Account Filter
+            if (filter.BankAccountId.HasValue && filter.BankAccountId.Value != Guid.Empty)
+            {
+                query = query.Where(x => x.BankAccountId == filter.BankAccountId.Value);
+            }
+
+            // 4. Linked Entity Filters
+            if (filter.UserId.HasValue && filter.UserId.Value != Guid.Empty)
+            {
+                query = query.Where(x => x.UserId == filter.UserId.Value);
+            }
+
+            if (filter.VendorId.HasValue && filter.VendorId.Value != Guid.Empty)
+            {
+                query = query.Where(x => x.VendorId == filter.VendorId.Value);
+            }
+
+            if (filter.PolicyPaymentId.HasValue && filter.PolicyPaymentId.Value != Guid.Empty)
+            {
+                query = query.Where(x => x.PolicyPaymentId == filter.PolicyPaymentId.Value);
+            }
+
+            // 5. Transaction Type Filter (Credit / Debit)
+            if (!string.IsNullOrWhiteSpace(filter.TransactionType))
+            {
+                var type = filter.TransactionType.Trim().ToLowerInvariant();
+                query = query.Where(x => x.TransactionType.ToLower() == type);
+            }
+
+            // 6. Category Filter
+            if (!string.IsNullOrWhiteSpace(filter.Category))
+            {
+                var category = filter.Category.Trim().ToLowerInvariant();
+                query = query.Where(x => x.Category.ToLower() == category);
+            }
+
+            // 7. Search Text (Description, Category, or Bank Account Name/Number)
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var search = filter.Search.Trim();
+                query = query.Where(x =>
+                    EF.Functions.Like(x.Description, $"%{search}%") ||
+                    EF.Functions.Like(x.Category, $"%{search}%") ||
+                    (x.BankAccount != null && (
+                        EF.Functions.Like(x.BankAccount.BankName, $"%{search}%") ||
+                        EF.Functions.Like(x.BankAccount.AccountNumber, $"%{search}%")
+                    )));
+            }
+
+            // 8. Date Range Filter
+            if (filter.FromDate.HasValue)
+            {
+                var from = DateTime.SpecifyKind(filter.FromDate.Value.Date, DateTimeKind.Utc);
+                query = query.Where(x => x.TransactionDate >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var to = DateTime.SpecifyKind(filter.ToDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                query = query.Where(x => x.TransactionDate <= to);
+            }
+
+            // 9. Sorting
+            var isDescending = !string.Equals(filter.SortOrder?.Trim(), "asc", StringComparison.OrdinalIgnoreCase);
+
+            query = filter.SortBy?.Trim().ToLowerInvariant() switch
+            {
+                "amount" => isDescending ? query.OrderByDescending(x => x.Amount) : query.OrderBy(x => x.Amount),
+                _ => isDescending ? query.OrderByDescending(x => x.TransactionDate) : query.OrderBy(x => x.TransactionDate)
+            };
+
+            // 10. Financial Aggregations across filtered set
+            var totalCredited = await query
+                .Where(x => x.TransactionType == "Credit")
+                .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+            var totalDebited = await query
+                .Where(x => x.TransactionType == "Debit")
+                .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+            var totalRecords = await query.CountAsync(cancellationToken);
+
+            // 11. Pagination & Secure Projection
+            var items = totalRecords > 0
+                ? await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(x => new BankTransactionItemDto
+                    {
+                        Id = x.Id,
+                        BankAccountId = x.BankAccountId,
+                        BankName = x.BankAccount != null ? x.BankAccount.BankName : "N/A",
+                        AccountNumberMasked = x.BankAccount != null && !string.IsNullOrEmpty(x.BankAccount.AccountNumber) && x.BankAccount.AccountNumber.Length >= 4
+                            ? $"•••• {x.BankAccount.AccountNumber.Substring(x.BankAccount.AccountNumber.Length - 4)}"
+                            : "••••",
+                        TransactionType = x.TransactionType,
+                        Amount = x.Amount,
+                        Category = x.Category,
+                        Description = x.Description,
+                        PolicyPaymentId = x.PolicyPaymentId,
+                        SalaryId = x.SalaryId,
+                        VendorId = x.VendorId,
+                        UserId = x.UserId,
+                        TransactionDate = x.TransactionDate,
+                        CreatedAt = x.CreatedAt
+                    })
+                    .ToListAsync(cancellationToken)
+                : [];
+
+            var totalPages = totalRecords > 0
+                ? (int)Math.Ceiling((double)totalRecords / pageSize)
+                : 0;
+
+            var response = new BankTransactionResponse
+            {
+                Summary = new BankTransactionSummaryDto
+                {
+                    TotalCredited = totalCredited,
+                    TotalDebited = totalDebited,
+                    TotalTransactions = totalRecords
+                },
+                Transactions = new PagedResponse<BankTransactionItemDto>
+                {
+                    Items = items,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    TotalRecords = totalRecords,
+                    TotalPages = totalPages
+                }
+            };
+
+            return Result<BankTransactionResponse>.Success(response, "Bank transactions fetched successfully.");
         }
     }
 }

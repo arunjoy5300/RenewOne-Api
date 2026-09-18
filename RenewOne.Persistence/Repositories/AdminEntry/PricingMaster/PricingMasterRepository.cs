@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.PricingMaster;
 using RenewOne.Domain.Entities;
 
@@ -7,10 +8,11 @@ namespace RenewOne.Persistence.Repositories.AdminEntry.PricingMaster
     public class PricingMasterRepository : IPricingMasterRepository
     {
         private readonly AppDbContext _context;
-
-        public PricingMasterRepository(AppDbContext context)
+        private readonly ILogger<PricingMasterRepository> _logger;
+        public PricingMasterRepository(AppDbContext context, ILogger<PricingMasterRepository> logger)
         {
             _context = context;
+            _logger = logger;
         }
         public IQueryable<Domain.Entities.PricingMaster> GetPricingMastersQuery()
         {
@@ -47,9 +49,15 @@ namespace RenewOne.Persistence.Repositories.AdminEntry.PricingMaster
             _context.PricingMasters.Update(pricingMaster);
             return await _context.SaveChangesAsync() > 0;
         }
-        public async Task<List<Domain.Entities.PricingMaster>> GetTPPricing(Guid vehicleTypeId, Guid agentClassId, int cc) 
+        public async Task<List<Domain.Entities.PricingMaster>> GetTPPricing(Guid vehicleTypeId,Guid agentClassId,int cc)
         {
-            return await _context.PricingMasters
+            _logger.LogInformation(
+                "Getting TP pricing. VehicleTypeId: {VehicleTypeId}, AgentClassId: {AgentClassId}, CC: {CC}",
+                vehicleTypeId,
+                agentClassId,
+                cc);
+
+            var pricingMasters = await _context.PricingMasters
                 .Include(p => p.AgentClass)
                 .Include(p => p.VehicleType)
                 .Include(p => p.InsuranceCompany)
@@ -60,6 +68,12 @@ namespace RenewOne.Persistence.Repositories.AdminEntry.PricingMaster
                     p.MaxCC >= cc &&
                     p.IsActive)
                 .ToListAsync();
+
+            _logger.LogInformation(
+                "TP pricing results: {Count}",
+                pricingMasters.Count);
+
+            return pricingMasters;
         }
     }
 }

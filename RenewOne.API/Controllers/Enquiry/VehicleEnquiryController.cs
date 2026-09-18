@@ -151,7 +151,7 @@ namespace RenewOne.API.Controllers.Enquiry
             return StatusCode(result.StatusCode, result);
         }
 
-        [HttpPost("{documentId:guid}")]
+        [HttpPost("delete/{documentId:guid}")]
         public async Task<IActionResult> DeleteUploadedDocument(Guid documentId, CancellationToken cancellationToken)
         {
             var result = await _enquiryService.DeleteUploadedDocument(documentId, cancellationToken);
