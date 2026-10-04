@@ -345,9 +345,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
         #region SubmitVehicleEnquiryAsync
         public async Task<Result<EnquirySubmitResponse>> SubmitVehicleEnquiryAsync(
-            SubmitVehicleEnquiry request,
-            Guid accountId,
-            CancellationToken cancellationToken = default)
+        SubmitVehicleEnquiry request,
+        Guid accountId,
+        CancellationToken cancellationToken = default)
         {
             bool hasInstantQuotes = false;
 
@@ -371,7 +371,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         "Enquiry not found. EnquiryId: {EnquiryId}",
                         request.EnquiryId);
 
-                    return Result<EnquirySubmitResponse>.NotFound("Enquiry not found");
+                    return Result<EnquirySubmitResponse>.NotFound(
+                        "Enquiry not found");
                 }
 
                 if (enquiry.Status != EnquiryStatus.Created.ToString())
@@ -395,7 +396,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     if (account == null)
                     {
                         await _unitOfWork.RollbackTransactionAsync();
-                        return Result<EnquirySubmitResponse>.NotFound("Account not found");
+
+                        return Result<EnquirySubmitResponse>.NotFound(
+                            "Account not found");
                     }
 
                     if (!decimal.TryParse(
@@ -409,59 +412,81 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     }
 
                     var pricingMasters =
-                        await _pricingMasterRepository.GetTPPricing(
+                        (await _pricingMasterRepository.GetTPPricing(
                             enquiry.VehicleEnquiryDetails.VehicleTypeId,
                             account.AgentClassId,
-                            (int)ccValue);
+                            (int)ccValue))
+                        .ToList();
 
-                    if (!pricingMasters.Any())
+                    if (pricingMasters.Count > 0)
                     {
+                        foreach (var pricing in pricingMasters)
+                        {
+                            await _enquiryQuoteRepository.AddEnquiryQuoteAsync(
+                                new EnquiryQuote
+                                {
+                                    Id = Guid.NewGuid(),
+                                    EnquiryId = enquiry.Id,
+                                    InsuranceCompanyId = pricing.InsuranceCompanyId,
+                                    Premium = pricing.TotalPremium,
+                                    CompanyPayable = pricing.CompanyPayable,
+                                    AgentPoints = pricing.AgentPoints,
+                                    AdminProfit = pricing.AdminProfit,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                });
+                        }
+
+                        hasInstantQuotes = true;
+
+                        enquiry.Status = EnquiryStatus.Quoted.ToString();
+                        enquiry.CurrentStep = 4;
+
+                        _logger.LogInformation(
+                            "Instant quotes generated. EnquiryId: {EnquiryId}, QuoteCount: {QuoteCount}",
+                            enquiry.Id,
+                            pricingMasters.Count);
+                    }
+                    
+                    else
+                    {
+                        hasInstantQuotes = false;
+
                         _logger.LogWarning(
-                            "No pricing available. EnquiryId: {EnquiryId}",
-                            enquiry.Id);
+                            "No pricing available for enquiry. EnquiryId: {EnquiryId}, VehicleTypeId: {VehicleTypeId}, AgentClassId: {AgentClassId}, CC: {CC}",
+                            enquiry.Id,
+                            enquiry.VehicleEnquiryDetails.VehicleTypeId,
+                            account.AgentClassId,
+                            ccValue);
+
+                        enquiry.Status = EnquiryStatus.Submitted.ToString();
+                        enquiry.CurrentStep = 2;
                     }
 
-                    foreach (var pricing in pricingMasters)
-                    {
-                        await _enquiryQuoteRepository.AddEnquiryQuoteAsync(
-                            new EnquiryQuote
-                            {
-                                Id = Guid.NewGuid(),
-                                EnquiryId = enquiry.Id,
-                                InsuranceCompanyId = pricing.InsuranceCompanyId,
-                                Premium = pricing.TotalPremium,
-                                CompanyPayable = pricing.CompanyPayable,
-                                AgentPoints = pricing.AgentPoints,
-                                AdminProfit = pricing.AdminProfit,
-                                CreatedAt = DateTime.UtcNow,
-                                UpdatedAt = DateTime.UtcNow
-                            });
-                    }
-
-                    hasInstantQuotes = pricingMasters.Any();
-
-                    enquiry.Status = EnquiryStatus.Quoted.ToString();
                     enquiry.UpdatedAt = DateTime.UtcNow;
-                    enquiry.CurrentStep = 4;
 
                     _enquiryRepository.Update(enquiry);
 
                     await _unitOfWork.CommitTransactionAsync();
 
+                    // Notify admins/supervisors in both cases
                     await _notificationService.SendToRolesAsync(
                         new NotificationMessage
                         {
                             Event = "EnquirySubmitted",
                             Title = "Enquiry Submitted",
-                            Message = $"A new enquiry has been submitted. EnquiryId: {enquiry.Id}"
+                            Message =
+                                $"A new enquiry has been submitted. EnquiryId: {enquiry.Id}"
                         },
                         "SuperAdmin",
                         "AdminEmployee",
                         "Supervisor");
 
                     _logger.LogInformation(
-                        "Instant quotes generated successfully. EnquiryId: {EnquiryId}",
-                        enquiry.Id);
+                        "Enquiry submitted successfully. EnquiryId: {EnquiryId}, Status: {Status}, HasInstantQuotes: {HasInstantQuotes}",
+                        enquiry.Id,
+                        enquiry.Status,
+                        hasInstantQuotes);
 
                     return Result<EnquirySubmitResponse>.Success(
                         new EnquirySubmitResponse
@@ -470,7 +495,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                             Status = enquiry.Status,
                             RedirectToQuotes = hasInstantQuotes
                         },
-                        "Quotes generated successfully.");
+                        hasInstantQuotes
+                            ? "Quotes generated successfully."
+                            : "Enquiry submitted successfully.");
                 }
 
                 if (enquiry.VehicleEnquiryDetails?.MIPolicyType ==
@@ -479,7 +506,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         PolicyType.Comprehensive.ToString())
                 {
                     var validation =
-                        await ValidateMandatoryDocumentsAsync(request.EnquiryId);
+                        await ValidateMandatoryDocumentsAsync(
+                            request.EnquiryId);
 
                     if (!validation.IsSuccess)
                     {
@@ -857,13 +885,13 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         x.DocType == DocumentType.RC.ToString() &&
                         x.DocSide == DocumentSide.Front.ToString())
                 },
-                new
-                {
-                    Name = "RC Back",
-                    Exists = documents.Any(x =>
-                        x.DocType == DocumentType.RC.ToString() &&
-                        x.DocSide == DocumentSide.Back.ToString())
-                },
+                //new
+                //{
+                //    Name = "RC Back",
+                //    Exists = documents.Any(x =>
+                //        x.DocType == DocumentType.RC.ToString() &&
+                //        x.DocSide == DocumentSide.Back.ToString())
+                //},
                 new
                 {
                     Name = "ID Front",
@@ -871,13 +899,13 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         x.DocType == DocumentType.Identity.ToString() &&
                         x.DocSide == DocumentSide.Front.ToString())
                 },
-                new
-                {
-                    Name = "ID Back",
-                    Exists = documents.Any(x =>
-                        x.DocType == DocumentType.Identity.ToString() &&
-                        x.DocSide == DocumentSide.Back.ToString())
-                },
+                //new
+                //{
+                //    Name = "ID Back",
+                //    Exists = documents.Any(x =>
+                //        x.DocType == DocumentType.Identity.ToString() &&
+                //        x.DocSide == DocumentSide.Back.ToString())
+                //},
                 new
                 {
                     Name = "Previous Policy",
@@ -1239,5 +1267,91 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             }
         }
         #endregion
+
+        //public async Task<Result<VehicleRcResponse>> GetVehicleAsync(string regnNumber,CancellationToken cancellationToken = default)
+        //{
+        //    regnNumber = NormalizeRegistrationNumber(regnNumber);
+
+        //    // 1. Check DB
+        //    var existingVehicle = await _vehicleEnquiryRepository.GetVehicleDetailsQuery()
+        //        .FirstOrDefaultAsync(x => x.VehicleNumber == regnNumber, cancellationToken);
+
+        //    if (existingVehicle != null)
+        //    {
+
+        //        return Result<VehicleRcResponse>.Success(
+        //            );
+        //    }
+
+        //    // 2. Not found → call external RC API
+        //    var rcResponse =
+        //        await _rcApiClient.GetVehicleDetailsAsync(
+        //            regnNumber,
+        //            cancellationToken);
+
+        //    if (rcResponse == null)
+        //    {
+        //        return Result<VehicleRcResponse>.NotFound(
+        //            "Vehicle details not found.");
+        //    }
+
+        //    // 3. Save API response to DB
+        //    var vehicle = MapToEntity(rcResponse);
+
+        //    await _vehicleRcRepository.AddAsync(vehicle);
+        //    await _vehicleRcRepository.SaveChangesAsync();
+
+        //    // 4. Return response
+        //    return Result<VehicleRcResponse>.Success(rcResponse);
+        //}
+
+        //private static string NormalizeRegistrationNumber(string regnNumber)
+        //{
+        //    return new string(
+        //        regnNumber
+        //            .Where(char.IsLetterOrDigit)
+        //            .ToArray())
+        //        .ToUpperInvariant();
+        //}
+
+        //private static VehicleRcResponse MapToEntity(VehicleRcResponse x)
+        //{
+        //    return new VehicleRcResponse
+        //    {
+        //        RegnNumber = x.RegnNumber,
+        //        StateCode = x.StateCode,
+        //        VehicleType = x.VehicleType,
+        //        IssuedBy = x.IssuedBy,
+        //        RegnDate = x.RegnDate,
+        //        RegnValidity = x.RegnValidity,
+        //        OwnerSerial = x.OwnerSerial,
+        //        ChassisNo = x.ChassisNo,
+        //        EngineNo = x.EngineNo,
+        //        OwnerName = x.OwnerName,
+        //        SonWifeDaughterOf = x.SonWifeDaughterOf,
+        //        Ownership = x.Ownership,
+        //        Address = x.Address,
+        //        Fuel = x.Fuel,
+        //        EmissionNorms = x.EmissionNorms,
+        //        CardIssueDate = x.CardIssueDate,
+        //        MfgMonthYear = x.MfgMonthYear,
+        //        NoOfCylinders = x.NoOfCylinders,
+        //        FormType = x.FormType,
+        //        VehicleClass = x.VehicleClass,
+        //        MakerName = x.MakerName,
+        //        ModelName = x.ModelName,
+        //        Colour = x.Colour,
+        //        BodyType = x.BodyType,
+        //        SeatingCapacity = x.SeatingCapacity,
+        //        UnladenWeight = x.UnladenWeight,
+        //        CubicCapacity = x.CubicCapacity,
+        //        HorsePower = x.HorsePower,
+        //        WheelBase = x.WheelBase,
+        //        Financier = x.Financier,
+        //        RegAuthority = x.RegAuthority,
+        //        QrCodeUrl = x.QrCodeUrl,
+        //        AuthoritySignUrl = x.AuthoritySignUrl
+        //    };
+        //}
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace RenewOne.Application.DTOs.Response.User
+﻿using RenewOne.Application.Common.Pagination;
+
+namespace RenewOne.Application.DTOs.Response.User
 {
     public class StaffResponse
     {
@@ -9,5 +11,16 @@
         public string PhoneNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    public class StaffListResponse
+    {
+        public PagedResponse<StaffResponse> Staff { get; set; } = null!;
+
+        public int TotalStaff { get; set; }
+
+        public int ActiveStaff { get; set; }
+
+        public int InactiveStaff { get; set; }
     }
 }

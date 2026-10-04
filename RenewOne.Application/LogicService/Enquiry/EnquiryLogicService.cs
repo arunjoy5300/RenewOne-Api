@@ -25,7 +25,6 @@ using RenewOne.Application.Interfaces.Services.LoggedUser;
 using RenewOne.Application.Interfaces.Services.SignalR;
 using RenewOne.Domain.Entities;
 using RenewOne.Domain.Enums;
-using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
 
 namespace RenewOne.Application.LogicService.Enquiry
 {
@@ -2963,7 +2962,7 @@ namespace RenewOne.Application.LogicService.Enquiry
         }
         #endregion
 
-        #region Agent Enquiry Lookup
+        #region Agent - Enquiry Lookup
         public async Task<Result<AgentEnquiryDashboardResponse>> GetAgentEnquiriesAsync(AgentEnquiryFilterDto filter,CancellationToken ct = default)
         {
             try
@@ -2971,29 +2970,25 @@ namespace RenewOne.Application.LogicService.Enquiry
                 var tenantId = _currentUser.AccountId;
                 var currentUserId = _currentUser.UserId;
 
-                // UserType "Agent" represents the Agency Owner
                 var isOwner = _currentUser.Role == "Agent";
 
-                // Base query strictly scoped to tenant
                 var baseQuery = _enquiryRepository
                     .GetEnquiryQueryable()
                     .AsNoTracking()
                     .Where(x => x.TenantId == tenantId);
 
-                // Scope enforcement: Owner has global agency access; staff are scoped to their assignments
                 if (isOwner)
                 {
                     if (filter.AgentId.HasValue)
                     {
-                        baseQuery = baseQuery.Where(x => x.AssignedEmployeeId == filter.AgentId.Value);
+                        baseQuery = baseQuery.Where(x => x.CreatedByUserId == filter.AgentId.Value);
                     }
                 }
                 else
                 {
-                    baseQuery = baseQuery.Where(x => x.AssignedEmployeeId == currentUserId);
+                    baseQuery = baseQuery.Where(x => x.CreatedByUserId == currentUserId);
                 }
 
-                // Apply Date Range filters on the base query so metrics match the selected date window
                 var today = DateTime.UtcNow.Date;
 
                 switch (filter.DateFilter)
@@ -3042,7 +3037,6 @@ namespace RenewOne.Application.LogicService.Enquiry
                         break;
                 }
 
-                // 1. Calculate the 6 metrics in a single database aggregation trip
                 var metrics = await baseQuery
                     .GroupBy(_ => 1)
                     .Select(g => new EnquiryMetricsDto(
@@ -3054,9 +3048,9 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                         g.Sum(x =>
                             ((x.Status == "Issued" || x.Status == "PolicyIssued")
-                             && x.PolicyPayments.Any()) // പെയ്‌മെന്റ് ടേബിളിൽ റെക്കോർഡ് ഉണ്ടെങ്കിൽ
+                             && x.PolicyPayments.Any())
                                 ? (x.EnquiryQuotes
-                                    .Where(q => q.IsSelected) // സെലക്ട് ചെയ്ത ക്വോട്ട് ആണെങ്കിൽ (ഫീൽഡ് അനുസരിച്ച് മാറ്റുക)
+                                    .Where(q => q.IsSelected)
                                     .Select(q => (decimal?)q.AgentPoints)
                                     .FirstOrDefault() ?? 0m)
                                 : 0m
@@ -3064,7 +3058,6 @@ namespace RenewOne.Application.LogicService.Enquiry
                     ))
                     .FirstOrDefaultAsync(ct) ?? new EnquiryMetricsDto(0, 0, 0, 0, 0, 0m);
 
-                // 2. Build Table Query with keyword and attribute filters
                 var tableQuery = baseQuery;
 
                 if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -3098,44 +3091,45 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                 var totalCount = await tableQuery.CountAsync(ct);
 
-                // 3. Sorting & Pagination
                 var isAsc = string.Equals(filter.SortDirection, "Asc", StringComparison.OrdinalIgnoreCase);
                 tableQuery = isAsc ? tableQuery.OrderBy(x => x.CreatedAt) : tableQuery.OrderByDescending(x => x.CreatedAt);
 
                 var pageNumber = filter.PageNumber < 1 ? 1 : filter.PageNumber;
                 var pageSize = filter.PageSize <= 0 ? 20 : Math.Min(filter.PageSize, 100);
 
-                // 4. Project into DTO with null safety across relations
                 var enquiries = await tableQuery
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
                     .Select(x => new AgentEnquiryListDto(
                         x.Id,
-                        x.EnquiryNumber,                                           // 1. Guid EnquiryId
-                        x.CustomerName,                                            // 2. string? CustomerName
-                        x.CustomerNumber,                                          // 3. string? PhoneNumber
+                        x.EnquiryNumber,
+                        x.CustomerName,
+                        x.CustomerNumber,
                         x.VehicleEnquiryDetails != null && x.VehicleEnquiryDetails.VehicleDetails != null
                             ? x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
-                            : null,                                                // 4. string? VehicleNumber
-                        x.InsuranceTypeId,                                         // 5. Guid? InsuranceTypeId
-                        x.InsuranceType != null ? x.InsuranceType.Name : null,      // 6. string? InsuranceType
+                            : null,
+                        x.InsuranceTypeId,
+                        x.InsuranceType != null ? x.InsuranceType.Name : null,
                         x.VehicleEnquiryDetails != null
                             ? x.VehicleEnquiryDetails.MIPolicyType
-                            : null,                                                // 7. string? PolicyType
+                            : null,                                 
                         x.VehicleEnquiryDetails != null
                             ? x.VehicleEnquiryDetails.VehicleTypeId
-                            : null,                                                // 8. Guid? VehicleTypeId
+                            : null,
                         x.VehicleEnquiryDetails != null && x.VehicleEnquiryDetails.VehicleType != null
                             ? x.VehicleEnquiryDetails.VehicleType.TypeName
-                            : null,                                                // 9. string? VehicleType
-                        x.Status,                                                  // 10. string? Status
-                        x.CreatedByUserId,                                                 // 11. Guid? AgentId
-                        x.CreatedByUser != null ? x.CreatedByUser.FullName : null,                 // 12. string? AgentName
-                        x.AssignedEmployeeId,                                      // 13. Guid? AssignedAgentId
+                            : null,
+                        x.Status,
+                        x.CreatedByUserId,
+                        x.CreatedByUser != null ? x.CreatedByUser.FullName : null,
+                        x.AssignedEmployeeId,
                         x.AssignedEmployee != null
                             ? x.AssignedEmployee.FullName
-                            : "Unassigned",                                        // 14. string? AssignedAgentName
-                        x.CreatedAt                                                // 15. DateTime CreatedAt
+                            : "Unassigned", 
+                        x.AssignedEmployee != null
+                            ? x.AssignedEmployee.PhoneNumber
+                            : null,
+                        x.CreatedAt
                     ))
                     .ToListAsync(ct);
 
@@ -3163,6 +3157,171 @@ namespace RenewOne.Application.LogicService.Enquiry
                 return Result<AgentEnquiryDashboardResponse>.Failure(
                     "Unable to fetch enquiries.");
             }
+        }
+        #endregion
+
+        #region Agent - View Enquiry - {id}
+        public async Task<Result<AgentEnquiryDetailsDto>> GetAgentEnquiryDetailsAsync(Guid enquiryId,CancellationToken cancellationToken = default)
+        {
+            var enquiry = await _enquiryRepository
+                .GetEnquiryQueryable()
+                .AsNoTracking()
+                .Where(x => x.Id == enquiryId)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.EnquiryNumber,
+                    x.CustomerName,
+                    PhoneNumber = x.CustomerNumber,
+
+                    VehicleNumber = x.VehicleEnquiryDetails != null &&
+                                    x.VehicleEnquiryDetails.VehicleDetails != null
+                        ? x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
+                        : null,
+
+                    EngineNumber = x.VehicleEnquiryDetails != null &&
+                                   x.VehicleEnquiryDetails.VehicleDetails != null
+                        ? x.VehicleEnquiryDetails.VehicleDetails.EngineNumber
+                        : null,
+
+                    ChassisNumber = x.VehicleEnquiryDetails != null &&
+                                    x.VehicleEnquiryDetails.VehicleDetails != null
+                        ? x.VehicleEnquiryDetails.VehicleDetails.ChassisNumber
+                        : null,
+
+                    x.InsuranceTypeId,
+
+                    InsuranceType = x.InsuranceType != null
+                        ? x.InsuranceType.Name
+                        : null,
+
+                    PolicyType = x.VehicleEnquiryDetails != null
+                        ? x.VehicleEnquiryDetails.MIPolicyType
+                        : null,
+
+                    VehicleTypeId = x.VehicleEnquiryDetails != null
+                        ? x.VehicleEnquiryDetails.VehicleTypeId
+                        : (Guid?)null,
+
+                    VehicleType = x.VehicleEnquiryDetails != null &&
+                                  x.VehicleEnquiryDetails.VehicleType != null
+                        ? x.VehicleEnquiryDetails.VehicleType.TypeName
+                        : null,
+
+                    x.Status,
+
+                    AgentId = x.TenantId,
+
+                    AgentName = x.Tenant != null
+                        ? x.Tenant.AgentName
+                        : null,
+
+                    x.AssignedEmployeeId,
+
+                    AssignedAgentName = x.AssignedEmployee != null
+                        ? x.AssignedEmployee.FullName
+                        : null,
+
+                    AssignedAgentNumber = x.AssignedEmployee != null
+                        ? x.AssignedEmployee.PhoneNumber
+                        : null,
+
+                    CreatedById = x.CreatedByUserId,
+
+                    CreatedByName = x.CreatedByUser != null
+                        ? x.CreatedByUser.FullName
+                        : null,
+
+                    x.CreatedAt,
+                    x.UpdatedAt,
+
+                    HasQuote = x.EnquiryQuotes.Any(),
+                    HasPolicy = x.PolicyDetails != null
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (enquiry == null)
+            {
+                return Result<AgentEnquiryDetailsDto>.NotFound(
+                    "Enquiry not found.");
+            }
+
+            var documents = await _documentRepository
+                .GetDocuments()
+                .AsNoTracking()
+                .Where(x =>
+                    x.EnquiryId == enquiryId &&
+                    x.IsActive)
+                .Select(x => new DocumentDto
+                {
+                    Id = x.Id,
+                    DocName = x.DocType + " - " + x.DocSide,
+                    DocType = x.DocType,
+                    DocSide = x.DocSide,
+                    UploadedAt = x.CreatedAt,
+                    Url = x.Url
+                })
+                .ToListAsync(cancellationToken);
+
+            var assignmentHistory = await _assignmentHistoryRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.EnquiryId == enquiryId)
+                .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new AssignmentHistoryDto
+                {
+                    Id = x.Id,
+                    ChangedByUserId = x.ChangedByUserId,
+                    ChangedByUserName = x.ChangedByUser != null
+                        ? x.ChangedByUser.FullName
+                        : null,
+                    FromStatus = x.FromStatus,
+                    ToStatus = x.ToStatus,
+                    FromEmployeeId = x.FromEmployeeId,
+                    FromEmployeeName = x.FromEmployee != null
+                        ? x.FromEmployee.FullName
+                        : null,
+                    ToEmployeeId = x.ToEmployeeId,
+                    ToEmployeeName = x.ToEmployee != null
+                        ? x.ToEmployee.FullName
+                        : null,
+                    Remarks = x.Remarks,
+                    CreatedAt = x.CreatedAt
+                })
+                .ToListAsync(cancellationToken);
+
+            var response = new AgentEnquiryDetailsDto(
+                enquiry.Id,
+                enquiry.EnquiryNumber,
+                enquiry.CustomerName,
+                enquiry.PhoneNumber,
+                enquiry.VehicleNumber,
+                enquiry.EngineNumber,
+                enquiry.ChassisNumber,
+                enquiry.InsuranceTypeId,
+                enquiry.InsuranceType,
+                enquiry.PolicyType,
+                enquiry.VehicleTypeId,
+                enquiry.VehicleType,
+                enquiry.Status,
+                enquiry.AgentId,
+                enquiry.AgentName,
+                enquiry.AssignedEmployeeId,
+                enquiry.AssignedAgentName,
+                enquiry.AssignedAgentNumber,
+                enquiry.CreatedById,
+                enquiry.CreatedByName,
+                enquiry.CreatedAt,
+                enquiry.UpdatedAt,
+                documents,
+                assignmentHistory,
+                enquiry.HasQuote,
+                enquiry.HasPolicy
+            );
+
+            return Result<AgentEnquiryDetailsDto>.Success(
+                response,
+                "Enquiry details fetched successfully.");
         }
         #endregion
 

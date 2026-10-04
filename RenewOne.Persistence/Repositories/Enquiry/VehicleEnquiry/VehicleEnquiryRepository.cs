@@ -42,5 +42,10 @@ namespace RenewOne.Persistence.Repositories.Enquiry.VehicleEnquiry
         {
             return await _context.SaveChangesAsync() > 0;
         }
+
+        public IQueryable<VehicleDetails> GetVehicleDetailsQuery()
+        {
+            return _context.VehicleDetails.AsQueryable();
+        }
     }
 }

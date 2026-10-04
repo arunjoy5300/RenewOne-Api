@@ -43,8 +43,10 @@ namespace RenewOne.Application.DTOs.Response.Enquiry
     public class DocumentDto
     {
         public Guid Id { get; set; }
+        public string? DocName { get; set; }
         public string DocType { get; set; } = string.Empty;
         public string DocSide { get; set; } = string.Empty;
+        public DateTime? UploadedAt { get; set; }
         public string Url { get; set; } = string.Empty;
     }
     public class QuoteDto
@@ -58,5 +60,20 @@ namespace RenewOne.Application.DTOs.Response.Enquiry
         public string? Remarks { get; set; }
         public DateTime? QuoteDate { get; set; }
         public bool? IsSelected { get; set; }
+    }
+
+    public class AssignmentHistoryDto
+    {
+        public Guid Id { get; set; }
+        public Guid ChangedByUserId { get; set; }
+        public string? ChangedByUserName { get; set; }
+        public string? FromStatus { get; set; }
+        public string? ToStatus { get; set; }
+        public Guid? FromEmployeeId { get; set; }
+        public string? FromEmployeeName { get; set; }
+        public Guid ToEmployeeId { get; set; }
+        public string? ToEmployeeName { get; set; }
+        public string? Remarks { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

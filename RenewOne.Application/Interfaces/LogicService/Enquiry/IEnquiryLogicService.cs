@@ -38,5 +38,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Enquiry
         Task<Result<bool>> ChangeEnquiryStatusAsync(ChangeEnquiryStatusRequest request,CancellationToken ct);
         Task<Result<AgentEnquiryDashboardResponse>> GetAgentEnquiriesAsync(AgentEnquiryFilterDto filter, CancellationToken ct = default);
         Task<Result<AgentPolicyPreview>> GetAgentPolicyPreview(Guid EnquiryId, CancellationToken ct);
+        Task<Result<AgentEnquiryDetailsDto>> GetAgentEnquiryDetailsAsync(Guid enquiryId, CancellationToken cancellationToken = default);
     }
 }

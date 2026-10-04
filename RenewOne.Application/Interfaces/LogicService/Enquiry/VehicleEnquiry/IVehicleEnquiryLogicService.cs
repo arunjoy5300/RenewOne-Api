@@ -5,6 +5,7 @@ using RenewOne.Application.DTOs.Request.Document;
 using RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry;
 using RenewOne.Application.DTOs.Response.Enquiry;
 using RenewOne.Application.DTOs.Response.Enquiry.VehicleEnquiry;
+using RenewOne.Application.DTOs.Response.RC;
 
 namespace RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry
 {
@@ -21,5 +22,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Enquiry.VehicleEnquiry
         Task<Result<PagedResponse<QuoteDto>>> ListVehicleQuotes(ListVehicleQuotesRequest request,CancellationToken cancellationToken = default);
         Task<Result<bool>> SubmitVehicleQuoteByAdmin(Guid enquiryId,Guid quoteId,CancellationToken cancellationToken = default);
         Task<Result<bool>> AddVehicleQuote(AddVehicleQuoteRequest request, CancellationToken cancellationToken = default);
+        //Task<Result<VehicleRcResponse>> GetVehicleAsync(string regnNumber, CancellationToken cancellationToken = default);
     }
 }

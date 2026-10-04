@@ -253,5 +253,14 @@ namespace RenewOne.API.Controllers.Enquiry
             return StatusCode(result.StatusCode, result);
         }
         #endregion
+
+        #region Agent View - Enquiry Details
+        [HttpGet("agent/enquiry-details/{enquiryId:guid}")]
+        public async Task<IActionResult> GetAgentEnquiryDetailsAsync(Guid enquiryId, CancellationToken cancellationToken = default)
+        {
+            var result = await _enquiryLogicService.GetAgentEnquiryDetailsAsync(enquiryId, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        #endregion
     }
 }

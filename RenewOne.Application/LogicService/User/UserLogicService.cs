@@ -484,12 +484,32 @@ namespace RenewOne.Application.LogicService.Users
         #endregion
 
         #region List Staff with Filters
-        public async Task<Result<PagedResponse<StaffResponse>>> ListStaffWithFiltersAsync(Guid accountId, StaffFilterRequest request)
+        public async Task<Result<StaffListResponse>> ListStaffWithFiltersAsync(Guid accountId,StaffFilterRequest request)
         {
             try
             {
-                var query = _userRepository.GetAllUsers()
+                // Base query - all staff for the account
+                var staffQuery = _userRepository
+                    .GetAllUsers()
                     .Where(x => x.AccountId == accountId);
+
+                // ============================================================
+                // STAFF COUNTS
+                // ============================================================
+
+                var totalStaff = await staffQuery.CountAsync();
+
+                var activeStaff = await staffQuery
+                    .CountAsync(x => x.IsActive);
+
+                var inactiveStaff = await staffQuery
+                    .CountAsync(x => !x.IsActive);
+
+                // ============================================================
+                // FILTERS
+                // ============================================================
+
+                var query = staffQuery;
 
                 // Search
                 if (!string.IsNullOrWhiteSpace(request.Search))
@@ -503,11 +523,16 @@ namespace RenewOne.Application.LogicService.Users
                         x.PhoneNumber.Contains(search));
                 }
 
-                // Status Filter
+                // Status filter
                 if (request.Status.HasValue)
                 {
-                    query = query.Where(x => x.IsActive == request.Status.Value);
+                    query = query.Where(x =>
+                        x.IsActive == request.Status.Value);
                 }
+
+                // ============================================================
+                // PAGINATION
+                // ============================================================
 
                 var totalRecords = await query.CountAsync();
 
@@ -516,6 +541,10 @@ namespace RenewOne.Application.LogicService.Users
                     .Skip((request.PageNumber - 1) * request.PageSize)
                     .Take(request.PageSize)
                     .ToListAsync();
+
+                // ============================================================
+                // STAFF RESPONSE
+                // ============================================================
 
                 var response = staffList.Select(s => new StaffResponse
                 {
@@ -528,20 +557,37 @@ namespace RenewOne.Application.LogicService.Users
                     CreatedAt = s.CreatedAt
                 }).ToList();
 
-                return Result<PagedResponse<StaffResponse>>.Success(
-                    new PagedResponse<StaffResponse>
+                // ============================================================
+                // PAGED RESPONSE
+                // ============================================================
+
+                var pagedResponse = new PagedResponse<StaffResponse>
+                {
+                    Items = response,
+                    TotalRecords = totalRecords,
+                    PageNumber = request.PageNumber,
+                    PageSize = request.PageSize,
+                    TotalPages = (int)Math.Ceiling(
+                        (double)totalRecords / request.PageSize)
+                };
+
+                // ============================================================
+                // FINAL RESPONSE
+                // ============================================================
+
+                return Result<StaffListResponse>.Success(
+                    new StaffListResponse
                     {
-                        Items = response,
-                        TotalRecords = totalRecords,
-                        PageNumber = request.PageNumber,
-                        PageSize = request.PageSize,
-                        TotalPages = (int)Math.Ceiling((double)totalRecords / request.PageSize)
+                        Staff = pagedResponse,
+                        TotalStaff = totalStaff,
+                        ActiveStaff = activeStaff,
+                        InactiveStaff = inactiveStaff
                     },
                     "Staff fetched successfully");
             }
             catch (Exception ex)
             {
-                return Result<PagedResponse<StaffResponse>>.Failure(
+                return Result<StaffListResponse>.Failure(
                     $"Error fetching staff: {ex.Message}",
                     500);
             }

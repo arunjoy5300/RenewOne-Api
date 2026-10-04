@@ -16,6 +16,7 @@
     string? AgentName,
     Guid? AssignedAgentId,
     string? AssignedAgentName,
+    string? AssigedAgentNumber,
     DateTime CreatedAt
 );
 }

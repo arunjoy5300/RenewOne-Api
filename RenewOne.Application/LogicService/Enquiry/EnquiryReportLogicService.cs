@@ -43,9 +43,7 @@ namespace RenewOne.Application.LogicService.Enquiry
 
         #region Status Report
 
-        private async Task<EnquiryReportResult> GenerateStatusReportAsync(
-            EnquiryReportRequest request,
-            CancellationToken cancellationToken)
+        private async Task<EnquiryReportResult> GenerateStatusReportAsync(EnquiryReportRequest request,CancellationToken cancellationToken)
         {
             var query = _repository.GetEnquiries();
 

@@ -12,7 +12,7 @@ namespace RenewOne.Application.Interfaces.LogicService.User
     {
         Task<Result<bool>> CreateStaffAsync(CreateStaffRequest request, Guid accountId);
         Task<Result<List<StaffResponse>>> GetMyStaffAsync(Guid accountId);
-        Task<Result<PagedResponse<StaffResponse>>> ListStaffWithFiltersAsync(Guid accountId,StaffFilterRequest request);
+        Task<Result<StaffListResponse>> ListStaffWithFiltersAsync(Guid accountId,StaffFilterRequest request);
         Task<Result<bool>> ToggleStaffStatusAsync(Guid staffId, Guid accountId);
         Task<Result<bool>> CreateInternalUserAsync(CreateInternalUserRequest request);
         Task<Result<PagedResponse<EmployeeListResponse>>> GetAdminEmployee(EmployeeListRequest request);
