@@ -83,15 +83,13 @@ using RenewOne.Persistence.Repositories.Wallet;
 using Serilog;
 using System.Text;
 
+var builder = WebApplication.CreateBuilder(args);
+
+
 Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(
-        new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json")
-            .Build())
+    .ReadFrom.Configuration(builder.Configuration)
     .CreateLogger();
 
-
-var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options =>
