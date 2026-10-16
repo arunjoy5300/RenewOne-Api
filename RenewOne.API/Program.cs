@@ -85,11 +85,14 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile(
-    "/etc/renewone/appsettings.Production.json",
-    optional: false,
-    reloadOnChange: true
-);
+if (builder.Environment.IsProduction())
+{
+    builder.Configuration.AddJsonFile(
+        "/etc/renewone/appsettings.Production.json",
+        optional: false,
+        reloadOnChange: true
+    );
+}
 
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
