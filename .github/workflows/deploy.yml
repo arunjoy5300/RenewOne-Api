@@ -158,4 +158,4 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST" \
             "curl --fail --silent --show-error \
-             --max-time 10 http://127.0.0.1:5005/ >/dev/null"
+             --max-time 10 http://127.0.0.1:5005/health >/dev/null"
