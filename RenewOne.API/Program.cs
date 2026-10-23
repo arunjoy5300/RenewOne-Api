@@ -39,6 +39,7 @@ using RenewOne.Application.Interfaces.Services.External.R2;
 using RenewOne.Application.Interfaces.Services.External.RC;
 using RenewOne.Application.Interfaces.Services.Jwt;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
+using RenewOne.Application.Interfaces.Services.Reports;
 using RenewOne.Application.Interfaces.Services.SignalR;
 using RenewOne.Application.LogicService.Accounts;
 using RenewOne.Application.LogicService.AdminEntry;
@@ -60,6 +61,7 @@ using RenewOne.Infrastructure.Services.External;
 using RenewOne.Infrastructure.Services.External.R2;
 using RenewOne.Infrastructure.Services.Jwt;
 using RenewOne.Infrastructure.Services.RC;
+using RenewOne.Infrastructure.Services.Reports;
 using RenewOne.Infrastructure.Services.SignalR;
 using RenewOne.Infrastructure.Services.User;
 using RenewOne.Persistence;
@@ -207,6 +209,7 @@ builder.Services.AddScoped<IBankTransactionRepository, BankTransactionRepository
 builder.Services.AddSingleton<IEnquiryReportDefinitionProvider,EnquiryReportDefinitionProvider>();
 builder.Services.AddScoped<IEnquiryReportRepository,EnquiryReportRepository>();
 builder.Services.AddScoped<IEnquiryReportLogicService,EnquiryReportLogicService>();
+builder.Services.AddScoped<IReportExportService, ReportExportService>();
 builder.Services.AddScoped<IDashboardLogicService, DashboardLogicService>();
 builder.Services.AddScoped<IInsuranceProductRepository, InsuranceProductRepository>();
 

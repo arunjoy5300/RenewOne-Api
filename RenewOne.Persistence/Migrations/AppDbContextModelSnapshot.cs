@@ -65,7 +65,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("AgentClassId");
 
-                    b.ToTable("Accounts");
+                    b.ToTable("Accounts", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.AgentClass", b =>
@@ -93,7 +93,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AgentClasses");
+                    b.ToTable("AgentClasses", (string)null);
 
                     b.HasData(
                         new
@@ -166,7 +166,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("ToEmployeeId");
 
-                    b.ToTable("AssignmentHistories");
+                    b.ToTable("AssignmentHistories", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.BankAccount", b =>
@@ -221,7 +221,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BankAccount");
+                    b.ToTable("BankAccount", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.BankTransaction", b =>
@@ -273,7 +273,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("BankAccountId");
 
-                    b.ToTable("BankTransactions");
+                    b.ToTable("BankTransactions", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Document", b =>
@@ -318,7 +318,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("UploadedUserId");
 
-                    b.ToTable("Documents");
+                    b.ToTable("Documents", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Enquiry", b =>
@@ -388,7 +388,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Enquiries");
+                    b.ToTable("Enquiries", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.EnquiryQuote", b =>
@@ -450,7 +450,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("EnquiryQuotes");
+                    b.ToTable("EnquiryQuotes", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceCompany", b =>
@@ -474,7 +474,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InsuranceCompanies");
+                    b.ToTable("InsuranceCompanies", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceProductDisplay", b =>
@@ -528,7 +528,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("InsuranceTypeId");
 
-                    b.ToTable("InsuranceProductDisplays");
+                    b.ToTable("InsuranceProductDisplays", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceType", b =>
@@ -555,7 +555,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InsuranceTypes");
+                    b.ToTable("InsuranceTypes", (string)null);
 
                     b.HasData(
                         new
@@ -613,7 +613,7 @@ namespace RenewOne.Persistence.Migrations
                     b.HasIndex("AccountId")
                         .IsUnique();
 
-                    b.ToTable("Ledgers");
+                    b.ToTable("Ledgers", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.LedgerTransaction", b =>
@@ -664,7 +664,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("LedgerId");
 
-                    b.ToTable("LedgerTransactions");
+                    b.ToTable("LedgerTransactions", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.LoginHistory", b =>
@@ -698,7 +698,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("LoginHistories");
+                    b.ToTable("LoginHistories", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.PaymentOrder", b =>
@@ -783,7 +783,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PaymentOrders");
+                    b.ToTable("PaymentOrders", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.PolicyDetails", b =>
@@ -828,7 +828,7 @@ namespace RenewOne.Persistence.Migrations
                     b.HasIndex("EnquiryId")
                         .IsUnique();
 
-                    b.ToTable("PolicyDetails");
+                    b.ToTable("PolicyDetails", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.PolicyPayment", b =>
@@ -902,7 +902,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("VerifiedbyUserId");
 
-                    b.ToTable("PolicyPayments");
+                    b.ToTable("PolicyPayments", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.PricingMaster", b =>
@@ -996,7 +996,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("VehicleTypeId");
 
-                    b.ToTable("QRMappings");
+                    b.ToTable("QRMappings", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.QRMaster", b =>
@@ -1029,7 +1029,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("BankAccountId");
 
-                    b.ToTable("QRMasters");
+                    b.ToTable("QRMasters", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.User", b =>
@@ -1078,7 +1078,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.UserModulePermission", b =>
@@ -1104,7 +1104,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserModulePermissions");
+                    b.ToTable("UserModulePermissions", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.UserTaskAllocation", b =>
@@ -1142,7 +1142,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("VehicleTypeId");
 
-                    b.ToTable("UserTaskAllocations");
+                    b.ToTable("UserTaskAllocations", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleDetails", b =>
@@ -1303,7 +1303,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("VehicleDetails");
+                    b.ToTable("VehicleDetails", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleEnquiryDetails", b =>
@@ -1354,7 +1354,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("VehicleTypeId");
 
-                    b.ToTable("VehicleEnquiryDetails");
+                    b.ToTable("VehicleEnquiryDetails", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.VehicleType", b =>
@@ -1381,7 +1381,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("VehicleTypes");
+                    b.ToTable("VehicleTypes", (string)null);
 
                     b.HasData(
                         new
@@ -1482,7 +1482,7 @@ namespace RenewOne.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[BankAccountId] IS NOT NULL");
 
-                    b.ToTable("Vendors");
+                    b.ToTable("Vendors", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.VendorTransaction", b =>
@@ -1535,7 +1535,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("VendorId");
 
-                    b.ToTable("VendorTransaction");
+                    b.ToTable("VendorTransaction", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Wallet", b =>
@@ -1564,7 +1564,7 @@ namespace RenewOne.Persistence.Migrations
                     b.HasIndex("AccountId")
                         .IsUnique();
 
-                    b.ToTable("Wallets");
+                    b.ToTable("Wallets", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.WalletTransaction", b =>
@@ -1629,7 +1629,7 @@ namespace RenewOne.Persistence.Migrations
 
                     b.HasIndex("WalletId");
 
-                    b.ToTable("WalletTransactions");
+                    b.ToTable("WalletTransactions", (string)null);
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.Account", b =>
