@@ -1,10 +1,8 @@
-﻿using Amazon.S3;
+﻿
+using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Configuration;
 using RenewOne.Application.Interfaces.Services.External.R2;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
 using HeyRed.Mime;
 
 namespace RenewOne.Infrastructure.Services.External.R2
@@ -17,7 +15,11 @@ namespace RenewOne.Infrastructure.Services.External.R2
         {
             _config = config;
         }
-        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string? contentType = null)
+
+        public async Task<string> UploadFileAsync(
+            Stream fileStream,
+            string fileName,
+            string? contentType = null)
         {
             var r2 = _config.GetSection("R2");
 
@@ -38,29 +40,17 @@ namespace RenewOne.Infrastructure.Services.External.R2
             }
 
             // 10 MB limit
+            const long maxFileSize = 10 * 1024 * 1024;
+
             if (fileStream.CanSeek)
             {
-                const long maxFileSize = 10 * 1024 * 1024;
-
-                if (fileStream.Length > maxFileSize)
+                if (fileStream.Length - fileStream.Position > maxFileSize)
                 {
                     throw new InvalidOperationException(
                         "File size cannot exceed 10 MB.");
                 }
-            }
 
-            Stream uploadStream = fileStream;
-
-            // Compress images only
-            if (contentType.StartsWith("image/"))
-            {
-                uploadStream = await CompressImageAsync(fileStream);
-
-                // Since we're saving as JPEG
-                contentType = "image/jpeg";
-
-                // Optional: change extension to .jpg
-                fileName = Path.ChangeExtension(fileName, ".jpg");
+                fileStream.Position = 0;
             }
 
             var config = new AmazonS3Config
@@ -78,47 +68,15 @@ namespace RenewOne.Infrastructure.Services.External.R2
             {
                 BucketName = r2["BucketName"],
                 Key = fileName,
-                InputStream = uploadStream,
+                InputStream = fileStream,
                 ContentType = contentType,
                 DisablePayloadSigning = true
             };
 
             await client.PutObjectAsync(request);
 
-            // Dispose compressed stream if created
-            if (uploadStream != fileStream)
-            {
-                await uploadStream.DisposeAsync();
-            }
-
-            // Return only object key/path
+            // Return the original object key
             return fileName;
-        }
-
-        private static async Task<Stream> CompressImageAsync(Stream inputStream)
-        {
-            inputStream.Position = 0;
-
-            using var image = await Image.LoadAsync(inputStream);
-
-            image.Mutate(x => x.Resize(new ResizeOptions
-            {
-                Mode = ResizeMode.Max,
-                Size = new Size(1600, 1600)
-            }));
-
-            var outputStream = new MemoryStream();
-
-            await image.SaveAsJpegAsync(
-                outputStream,
-                new JpegEncoder
-                {
-                    Quality = 75
-                });
-
-            outputStream.Position = 0;
-
-            return outputStream;
         }
     }
 }
