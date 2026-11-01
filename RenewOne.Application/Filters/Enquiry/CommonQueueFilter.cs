@@ -10,7 +10,7 @@ namespace RenewOne.Application.Filters.Enquiry
         public Guid? VehicleTypeId { get; set; }
         public DateOnly? FromDate { get; set; }
         public DateOnly? ToDate { get; set; }
-        public DateFilterType? DateFilter { get; set; }
+        public DateFilterType? DateFilter { get; set; } = DateFilterType.Today;
         public bool SortDescending { get; set; } = true;
     }
 }

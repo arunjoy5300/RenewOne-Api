@@ -4,6 +4,7 @@ namespace RenewOne.Domain.Entities
 {
     public class User : BaseEntity
     {
+        public string EmpId { get; set; } = string.Empty;
         public Guid? AccountId { get; set; }
         public string UserName { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;

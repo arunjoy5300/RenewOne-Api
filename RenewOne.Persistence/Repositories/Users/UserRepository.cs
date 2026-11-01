@@ -45,5 +45,14 @@ namespace RenewOne.Persistence.Repositories.Users
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<string?> GetLastEmpIdAsync()
+        {
+            return await _context.Users
+                .Where(u => u.EmpId != null && u.EmpId.StartsWith("EMP-"))
+                .OrderByDescending(u => u.EmpId)
+                .Select(u => u.EmpId)
+                .FirstOrDefaultAsync();
+        }
     }
 }

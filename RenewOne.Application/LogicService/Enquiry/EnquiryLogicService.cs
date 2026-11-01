@@ -856,12 +856,18 @@ namespace RenewOne.Application.LogicService.Enquiry
                 .AsNoTracking()
                 .Where(e => e.AssignedEmployeeId == null);
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            // 1. Timezone Fix: Server local time-ന് പകരം UTC ഉപയോഗിക്കുന്നു
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             DateOnly fromDate;
             DateOnly toDate;
 
-            switch (filter.DateFilter)
+            // 2. Default Date Filter: വാല്യൂ ഇല്ലെങ്കിലോ 0 ആണെങ്കിലോ Today ഡിഫോൾട്ട് ആക്കുന്നു
+            var activeDateFilter = filter.DateFilter.HasValue && filter.DateFilter.Value != 0
+                ? filter.DateFilter.Value
+                : DateFilterType.Today;
+
+            switch (activeDateFilter)
             {
                 case DateFilterType.Today:
                     fromDate = today;
@@ -874,43 +880,32 @@ namespace RenewOne.Application.LogicService.Enquiry
                     break;
 
                 case DateFilterType.ThisWeek:
-                    var daysSinceMonday =
-                        ((int)today.DayOfWeek + 6) % 7;
-
+                    var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
                     fromDate = today.AddDays(-daysSinceMonday);
                     toDate = today;
                     break;
 
                 case DateFilterType.ThisMonth:
-                    fromDate = new DateOnly(
-                        today.Year,
-                        today.Month,
-                        1);
-
+                    fromDate = new DateOnly(today.Year, today.Month, 1);
                     toDate = today;
                     break;
 
                 case DateFilterType.ThisYear:
-                    fromDate = new DateOnly(
-                        today.Year,
-                        1,
-                        1);
-
+                    fromDate = new DateOnly(today.Year, 1, 1);
                     toDate = today;
                     break;
 
                 case DateFilterType.Custom:
-                    if (!filter.FromDate.HasValue ||
-                        !filter.ToDate.HasValue)
+                    if (!filter.FromDate.HasValue || !filter.ToDate.HasValue)
                     {
                         return Result<PagedResponse<CommonQueueResponse>>.Failure(
-                            "FromDate and ToDate are required for custom date range.");
+                            "FromDate and ToDate are required for custom date range.", 400);
                     }
 
                     if (filter.FromDate > filter.ToDate)
                     {
                         return Result<PagedResponse<CommonQueueResponse>>.Failure(
-                            "FromDate cannot be greater than ToDate.");
+                            "FromDate cannot be greater than ToDate.", 400);
                     }
 
                     fromDate = filter.FromDate.Value;
@@ -918,43 +913,37 @@ namespace RenewOne.Application.LogicService.Enquiry
                     break;
 
                 default:
-                    return Result<PagedResponse<CommonQueueResponse>>.Failure(
-                        "Invalid date filter.");
+                    fromDate = today;
+                    toDate = today;
+                    break;
             }
 
-            var from = fromDate.ToDateTime(TimeOnly.MinValue);
-            var toExclusive = toDate
-                .AddDays(1)
-                .ToDateTime(TimeOnly.MinValue);
+            var from = DateTime.SpecifyKind(fromDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            var toExclusive = DateTime.SpecifyKind(toDate.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
-            query = query.Where(e =>
-                e.CreatedAt >= from &&
-                e.CreatedAt < toExclusive);
+            query = query.Where(e => e.CreatedAt >= from && e.CreatedAt < toExclusive);
 
-            var isPrivilegedUser =
-                role == "SuperAdmin" ||
-                role == "Supervisor";
+            // 3. User Permission Checking
+            var isPrivilegedUser = role == "SuperAdmin" || role == "Supervisor";
 
             if (!isPrivilegedUser)
             {
                 var allocations = _userTaskAllocationRepository
                     .GetQueryable()
                     .AsNoTracking()
-                    .Where(x =>
-                        x.UserId == userId &&
-                        x.CanAssign);
+                    .Where(x => x.UserId == userId && x.CanAssign);
 
                 query = query.Where(e =>
                     allocations.Any(a =>
                         a.InsuranceTypeId == e.InsuranceTypeId &&
                         (
                             a.VehicleTypeId == null ||
-                            a.VehicleTypeId ==
-                                e.VehicleEnquiryDetails!.VehicleTypeId
+                            (e.VehicleEnquiryDetails != null && a.VehicleTypeId == e.VehicleEnquiryDetails.VehicleTypeId)
                         )
                     ));
             }
 
+            // 4. Search Filter
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
                 var search = filter.Search.Trim();
@@ -965,23 +954,19 @@ namespace RenewOne.Application.LogicService.Enquiry
                     (
                         e.VehicleEnquiryDetails != null &&
                         e.VehicleEnquiryDetails.VehicleDetails != null &&
-                        e.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
-                            .Contains(search)
+                        e.VehicleEnquiryDetails.VehicleDetails.VehicleNumber.Contains(search)
                     ));
             }
 
             if (filter.InsuranceTypeId.HasValue)
             {
                 var insuranceTypeId = filter.InsuranceTypeId.Value;
-
-                query = query.Where(e =>
-                    e.InsuranceTypeId == insuranceTypeId);
+                query = query.Where(e => e.InsuranceTypeId == insuranceTypeId);
             }
 
             if (filter.VehicleTypeId.HasValue)
             {
                 var vehicleTypeId = filter.VehicleTypeId.Value;
-
                 query = query.Where(e =>
                     e.VehicleEnquiryDetails != null &&
                     e.VehicleEnquiryDetails.VehicleTypeId == vehicleTypeId);
@@ -989,54 +974,37 @@ namespace RenewOne.Application.LogicService.Enquiry
 
             var totalCount = await query.CountAsync(ct);
 
-            var resultQuery = query
-                .Select(e => new CommonQueueResponse
-                {
-                    Id = e.Id,
-                    EnquiryId = e.EnquiryNumber,
-                    CustomerName = e.CustomerName,
-                    CustomerNumber = e.CustomerNumber,
-                    //VehicleNumber = e.VehicleEnquiryDetails!
-                    //    .VehicleDetails!
-                    //    .VehicleNumber,
-                    //VehicleType = e.VehicleEnquiryDetails!
-                    //    .VehicleType!
-                    //    .TypeName,
-                    InsuranceType = e.InsuranceType!
-                        .Name,
-                    //PolicyType = e.VehicleEnquiryDetails!
-                    //    .MIPolicyType,
-                    Status = e.Status,
-                    CreatedBy = e.CreatedByUser!
-                        .FullName,
-                    CreatedByPhone = e.CreatedByUser!
-                        .PhoneNumber,
-                    CreatedByRole = e.CreatedByUser!
-                        .UserType,
-                    AgencyName = e.Tenant!
-                        .AgentName,
-                    SubmittedOn = e.UpdatedAt,
-                    Priority = e.Priority
-                });
+            // 5. Safe Projection: NullReferenceException ഒഴിവാക്കാനുള്ള നൾ-സേഫ് ചെക്കുകൾ
+            var resultQuery = query.Select(e => new CommonQueueResponse
+            {
+                Id = e.Id,
+                EnquiryId = e.EnquiryNumber,
+                CustomerName = e.CustomerName,
+                CustomerNumber = e.CustomerNumber,
+                InsuranceType = e.InsuranceType != null ? e.InsuranceType.Name : string.Empty,
+                Status = e.Status,
+                CreatedBy = e.CreatedByUser != null ? e.CreatedByUser.FullName : string.Empty,
+                CreatedByPhone = e.CreatedByUser != null ? e.CreatedByUser.PhoneNumber : string.Empty,
+                CreatedByRole = e.CreatedByUser != null ? e.CreatedByUser.UserType : string.Empty,
+                AgencyName = e.Tenant != null ? e.Tenant.AgentName : string.Empty,
+                SubmittedOn = e.CreatedAt, // Creation Time വെച്ച് ഓർഡർ ചെയ്യാൻ CreatedAt നൽകുന്നു
+                Priority = e.Priority
+            });
 
             resultQuery = filter.SortDescending
-                ? resultQuery
-                    .OrderByDescending(x => x.SubmittedOn)
-                    .ThenByDescending(x => x.Id)
-                : resultQuery
-                    .OrderBy(x => x.SubmittedOn)
-                    .ThenBy(x => x.Id);
+                ? resultQuery.OrderByDescending(x => x.SubmittedOn).ThenByDescending(x => x.Id)
+                : resultQuery.OrderBy(x => x.SubmittedOn).ThenBy(x => x.Id);
 
             var pageNumber = Math.Max(1, filter.PageNumber);
             var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
+            // 6. Pagination Syntax Fix
             var result = await resultQuery
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync(ct);
 
-            var totalPages = (int)Math.Ceiling(
-                (double)totalCount / pageSize);
+            var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
             var response = new PagedResponse<CommonQueueResponse>
             {

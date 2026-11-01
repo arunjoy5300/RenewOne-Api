@@ -70,9 +70,13 @@ namespace RenewOne.Application.LogicService.Users
             {
                 await _unitOfWork.BeginTransactionAsync();
 
+                // 1. യുണീക് ആയ EmpId ജനറേറ്റ് ചെയ്യുന്നു
+                var newEmpId = await GenerateNextEmpIdAsync();
+
                 var user = new User
                 {
                     Id = Guid.NewGuid(),
+                    EmpId = newEmpId, // <-- ഇവിടെ അസൈൻ ചെയ്യുന്നു
                     AccountId = null,
                     UserName = request.UserName,
                     FullName = request.FullName,
@@ -170,7 +174,8 @@ namespace RenewOne.Application.LogicService.Users
                 .Take(request.PageSize)
                 .Select(x => new EmployeeListResponse
                 {
-                    EmployeeId = x.Id,
+                    Id = x.Id,
+                    EmployeeId = x.EmpId,
                     EmployeeName = x.FullName,
                     Email = x.Email,
                     PhoneNumber = x.PhoneNumber,
@@ -430,6 +435,25 @@ namespace RenewOne.Application.LogicService.Users
             }
         }
         #endregion
+
+        private async Task<string> GenerateNextEmpIdAsync()
+        {
+            var lastEmpId = await _userRepository.GetLastEmpIdAsync();
+
+            int nextNumber = 1;
+
+            if (!string.IsNullOrEmpty(lastEmpId))
+            {
+                // "EMP-" കഴിഞ്ഞുള്ള നമ്പർ ഭാഗം വേർതിരിച്ചെടുക്കുന്നു (ഉദാ: "EMP-0005" -> "0005")
+                var parts = lastEmpId.Split('-');
+                if (parts.Length == 2 && int.TryParse(parts[1], out int currentNumber))
+                {
+                    nextNumber = currentNumber + 1;
+                }
+            }
+
+            return $"EMP-{nextNumber:D4}";
+        }
 
         #endregion
 

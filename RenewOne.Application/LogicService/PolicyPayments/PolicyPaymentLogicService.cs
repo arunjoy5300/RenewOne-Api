@@ -76,18 +76,18 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     return Result<string>.NotFound("Policy payment not found.");
                 }
 
-                // Validate Status
-                if (policyPayment.Status != "Pending")
-                {
-                    await _unitOfWork.RollbackTransactionAsync();
+                //// Validate Status
+                //if (policyPayment.Status != "Pending")
+                //{
+                //    await _unitOfWork.RollbackTransactionAsync();
 
-                    _logger.LogWarning(
-                        "Policy payment is already processed. PolicyPaymentId: {PolicyPaymentId}",
-                        request.PolicyPaymentId);
+                //    _logger.LogWarning(
+                //        "Policy payment is already processed. PolicyPaymentId: {PolicyPaymentId}",
+                //        request.PolicyPaymentId);
 
-                    return Result<string>.Failure(
-                        "Only pending payments can be approved.");
-                }
+                //    return Result<string>.Failure(
+                //        "Only pending payments can be approved.");
+                //}
 
                 // Update Policy Payment
                 policyPayment.Status = "Approved";
