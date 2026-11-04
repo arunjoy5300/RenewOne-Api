@@ -164,6 +164,14 @@ namespace RenewOne.API.Controllers.Enquiry
             var result = await _enquiryLogicService.GetAllAdminEnquiriesAsync(filter, ct);
             return StatusCode(result.StatusCode, result);
         }
+
+        [HttpGet("admin/admin-assisted-enquiries")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
+        public async Task<IActionResult> GetAdminAssistedEnquiriesAsync([FromQuery] PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var result = await _enquiryLogicService.GetAdminAssistedEnquiriesAsync(filter, ct);
+            return StatusCode(result.StatusCode, result);
+        }
         [HttpGet("admin/policy-summary/{enquiryId:guid}")]
         public async Task<IActionResult> GetPolicySummaryAsync(Guid enquiryId, CancellationToken ct)
         {

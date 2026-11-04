@@ -6,6 +6,7 @@ namespace RenewOne.Application.DTOs.Request.Enquiry.VehicleEnquiry
     {
         [Required]
         public Guid InsuranceCompanyId { get; set; }
+        public Guid? VendorId { get; set; }
         [Required]
         public Guid EnquiryId { get; set; }
         [Required]

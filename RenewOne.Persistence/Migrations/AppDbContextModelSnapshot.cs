@@ -442,6 +442,9 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("VendorId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EnquiryId");
@@ -449,6 +452,8 @@ namespace RenewOne.Persistence.Migrations
                     b.HasIndex("InsuranceCompanyId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("VendorId");
 
                     b.ToTable("EnquiryQuotes");
                 });
@@ -1023,8 +1028,7 @@ namespace RenewOne.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EmpId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -1055,6 +1059,10 @@ namespace RenewOne.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
+
+                    b.HasIndex("EmpId")
+                        .IsUnique()
+                        .HasFilter("[EmpId] IS NOT NULL");
 
                     b.ToTable("Users");
                 });
@@ -1677,11 +1685,17 @@ namespace RenewOne.Persistence.Migrations
                         .WithMany("QouteSelectedUser")
                         .HasForeignKey("UserId");
 
+                    b.HasOne("RenewOne.Domain.Entities.Vendor", "Vendor")
+                        .WithMany()
+                        .HasForeignKey("VendorId");
+
                     b.Navigation("Enquiry");
 
                     b.Navigation("InsuranceCompany");
 
                     b.Navigation("User");
+
+                    b.Navigation("Vendor");
                 });
 
             modelBuilder.Entity("RenewOne.Domain.Entities.InsuranceProductDisplay", b =>

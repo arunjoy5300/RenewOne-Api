@@ -1021,6 +1021,99 @@ namespace RenewOne.Application.LogicService.Enquiry
         }
         #endregion
 
+        public async Task<Result<PagedResponse<AdminAssistedEnquiryResponse>>> GetAdminAssistedEnquiriesAsync(PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var query = _enquiryRepository.GetEnquiryQueryable()
+                .AsNoTracking()
+                .Where(enquiry => enquiry.AdminAssisted == true);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var search = filter.Search.Trim();
+                query = query.Where(enquiry =>
+                    enquiry.CustomerName.Contains(search) ||
+                    enquiry.CustomerNumber.Contains(search) ||
+                    (enquiry.EnquiryNumber != null && enquiry.EnquiryNumber.Contains(search)) ||
+                    (enquiry.VehicleEnquiryDetails != null &&
+                     enquiry.VehicleEnquiryDetails.VehicleDetails != null &&
+                     enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber.Contains(search)));
+            }
+
+            if (filter.Status.HasValue)
+            {
+                var status = filter.Status.Value.ToString();
+                query = query.Where(enquiry => enquiry.Status == status);
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+                query = query.Where(enquiry => enquiry.InsuranceTypeId == filter.InsuranceTypeId.Value);
+
+            if (filter.VehicleTypeId.HasValue)
+                query = query.Where(enquiry => enquiry.VehicleEnquiryDetails != null &&
+                    enquiry.VehicleEnquiryDetails.VehicleTypeId == filter.VehicleTypeId.Value);
+
+            if (filter.AccountId.HasValue)
+                query = query.Where(enquiry => enquiry.TenantId == filter.AccountId.Value);
+
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(enquiry => enquiry.CreatedAt >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var toExclusive = filter.ToDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
+                query = query.Where(enquiry => enquiry.CreatedAt < toExclusive);
+            }
+
+            var totalRecords = await query.CountAsync(ct);
+            var pageNumber = Math.Max(1, filter.PageNumber);
+            var pageSize = Math.Clamp(filter.PageSize, 1, 100);
+            var orderedQuery = filter.SortDescending
+                ? query.OrderByDescending(enquiry => enquiry.CreatedAt).ThenByDescending(enquiry => enquiry.Id)
+                : query.OrderBy(enquiry => enquiry.CreatedAt).ThenBy(enquiry => enquiry.Id);
+
+            var items = await orderedQuery
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(enquiry => new AdminAssistedEnquiryResponse
+                {
+                    Id = enquiry.Id,
+                    EnquiryNumber = enquiry.EnquiryNumber ?? string.Empty,
+                    CustomerName = enquiry.CustomerName,
+                    CustomerNumber = enquiry.CustomerNumber,
+                    VehicleNumber = enquiry.VehicleEnquiryDetails != null && enquiry.VehicleEnquiryDetails.VehicleDetails != null
+                        ? enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
+                        : null,
+                    VehicleType = enquiry.VehicleEnquiryDetails != null && enquiry.VehicleEnquiryDetails.VehicleType != null
+                        ? enquiry.VehicleEnquiryDetails.VehicleType.TypeName
+                        : null,
+                    InsuranceType = enquiry.InsuranceType != null ? enquiry.InsuranceType.Name : null,
+                    PolicyType = enquiry.VehicleEnquiryDetails != null ? enquiry.VehicleEnquiryDetails.MIPolicyType : null,
+                    Status = enquiry.Status,
+                    CurrentStep = enquiry.CurrentStep,
+                    AdminAssisted = enquiry.AdminAssisted == true,
+                    AccountId = enquiry.TenantId,
+                    SelectedQuoteId = enquiry.SelectedQuoteId,
+                    CreatedAt = enquiry.CreatedAt
+                })
+                .ToListAsync(ct);
+
+            var result = new PagedResponse<AdminAssistedEnquiryResponse>
+            {
+                Items = items,
+                TotalRecords = totalRecords,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize)
+            };
+
+            return Result<PagedResponse<AdminAssistedEnquiryResponse>>.Success(
+                result,
+                "Admin-assisted enquiries fetched successfully.");
+        }
+
         #region Admin - Enquiry - All Equiry
         public async Task<Result<PagedResponse<QuoteQueueResponse>>> GetAllAdminEnquiriesAsync(PolicyQueueFilter filter, CancellationToken ct)
         {
@@ -1858,6 +1951,8 @@ namespace RenewOne.Application.LogicService.Enquiry
         }
         #endregion
 
+
+        //remove
         #region Admin - Enquiry - Draft Queue
         public async Task<Result<PagedResponse<QuoteQueueResponse>>> DraftQueue(PolicyQueueFilter filter, CancellationToken ct)
         {

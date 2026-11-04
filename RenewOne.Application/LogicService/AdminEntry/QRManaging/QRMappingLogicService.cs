@@ -405,16 +405,14 @@ namespace RenewOne.Application.LogicService.AdminEntry.QRManaging
         }
 
         public async Task<Result<string>> ChangeStatusAsync(
-        Guid id,
-        bool isActive,
-        CancellationToken cancellationToken = default)
+     Guid id,
+     CancellationToken cancellationToken = default)
         {
             try
             {
                 _logger.LogInformation(
-                    "Changing QR Mapping status. Id: {Id}, IsActive: {IsActive}",
-                    id,
-                    isActive);
+                    "Toggling QR Mapping status. Id: {Id}",
+                    id);
 
                 var mapping = await _qrMappingRepository.GetByIdAsync(id);
 
@@ -424,19 +422,14 @@ namespace RenewOne.Application.LogicService.AdminEntry.QRManaging
                         "QR Mapping not found. Id: {Id}",
                         id);
 
-                    return Result<string>.NotFound(
-                        "QR Mapping not found.");
+                    return Result<string>.NotFound("QR Mapping not found.");
                 }
 
-                if (mapping.IsActive == isActive)
-                {
-                    return Result<string>.Failure(
-                        $"QR Mapping is already {(isActive ? "Active" : "Inactive")}.");
-                }
+                bool newStatus = !mapping.IsActive;
 
                 await _unitOfWork.BeginTransactionAsync();
 
-                mapping.IsActive = isActive;
+                mapping.IsActive = newStatus;
                 mapping.UpdatedAt = DateTime.UtcNow;
 
                 _qrMappingRepository.Update(mapping);
@@ -445,12 +438,13 @@ namespace RenewOne.Application.LogicService.AdminEntry.QRManaging
                 await _unitOfWork.CommitTransactionAsync();
 
                 _logger.LogInformation(
-                    "QR Mapping status updated successfully. Id: {Id}",
-                    id);
+                    "QR Mapping status updated successfully. Id: {Id}, NewStatus: {Status}",
+                    id,
+                    newStatus);
 
                 return Result<string>.Success(
                     id.ToString(),
-                    $"QR Mapping {(isActive ? "activated" : "deactivated")} successfully.");
+                    $"QR Mapping {(newStatus ? "activated" : "deactivated")} successfully.");
             }
             catch (Exception ex)
             {

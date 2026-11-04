@@ -28,6 +28,7 @@ namespace RenewOne.Application.Interfaces.LogicService.Enquiry
         Task<Result<PagedResponse<QuoteQueueResponse>>> DraftQueue(PolicyQueueFilter filter, CancellationToken ct);
         Task<Result<AdminEnquiryDashboardResponse>> GetAdminEnquiryDashboardAsync(EnquiryDashboardFilter filter, CancellationToken ct);
         Task<Result<PagedResponse<QuoteQueueResponse>>> GetAllAdminEnquiriesAsync(PolicyQueueFilter filter, CancellationToken ct);
+        Task<Result<PagedResponse<AdminAssistedEnquiryResponse>>> GetAdminAssistedEnquiriesAsync(PolicyQueueFilter filter, CancellationToken ct);
         Task<Result<PolicySummaryDto>> GetPolicySummaryAsync(Guid enquiryId, CancellationToken ct);
         Task<Result<PaymentDetailsDto>> GetPaymentDetailsAsync(Guid enquiryId, CancellationToken ct);
         Task<Result<VendorSettlementDetailsDto>> GetVendorSettlementDetailsAsync(Guid enquiryId, Guid vendorId, VendorSettlementMethod settlementMethod, CancellationToken ct);

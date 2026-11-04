@@ -261,9 +261,16 @@ namespace RenewOne.Persistence
             modelBuilder.Entity<Enquiry>()
                 .HasIndex(e => new { e.AssignedEmployeeId, e.CreatedAt });
 
-            modelBuilder.Entity<User>()
-                .HasIndex(u => u.EmpId)
-                .IsUnique();
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.Property(x => x.EmpId)
+                    .IsRequired(false);
+
+                entity.HasIndex(x => x.EmpId)
+                    .IsUnique()
+                    .HasFilter("[EmpId] IS NOT NULL");
+            });
+
         }
     }
 }
