@@ -47,6 +47,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         private readonly IPolicyPaymentRepository _policyPaymentRepository;
         private readonly INotificationService _notificationService;
         private readonly ILedgerTransactionRepository _ledgerTransactionRepository;
+        private readonly IBankAccountRepository _bankAccountRepository;
         private readonly IBankTransactionRepository _bankTransactionRepository;
         #endregion
 
@@ -67,7 +68,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             IPolicyPaymentRepository policyPaymentRepository,
             INotificationService notificationService,
             ILedgerTransactionRepository ledgerTransactionRepository,
-            IBankTransactionRepository bankTransactionRepository)
+            IBankTransactionRepository bankTransactionRepository,
+            IBankAccountRepository bankAccountRepository)
         {
             _vehicleEnquiryRepository = vehicleEnquiryRepository;
             _rcApiService = rcApiService;
@@ -85,6 +87,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             _notificationService = notificationService;
             _ledgerTransactionRepository = ledgerTransactionRepository;
             _bankTransactionRepository = bankTransactionRepository;
+            _bankAccountRepository = bankAccountRepository;
         }
         #endregion
 
@@ -425,7 +428,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     }
                 }
                 // 2. COMPREHENSIVE / OWN DAMAGE FLOW
-                else if (policyType == PolicyType.OwnDamaged.ToString() || policyType == PolicyType.Comprehensive.ToString())
+                else if (policyType == PolicyType.OwnDamage.ToString() || policyType == PolicyType.Comprehensive.ToString())
                 {
                     var validation = await ValidateMandatoryDocumentsAsync(request.EnquiryId);
                     if (!validation.IsSuccess)
@@ -477,9 +480,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         #endregion
 
         #region SubmitPolicyRequest
-        public async Task<Result<string>> SubmitPolicyRequestAsync(
-    SubmitPolicyRequest request,
-    CancellationToken cancellationToken = default)
+        public async Task<Result<string>> SubmitPolicyRequestAsync(SubmitPolicyRequest request, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation(
                 "User {UserId} with role {Role} from IP {IpAddress} initiated policy submission.",
@@ -491,7 +492,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             {
                 Guid accountId;
 
-                // 1. അക്കൗണ്ട് റോൾ പ്രകാരം നിശ്ചയിക്കുന്നു
                 if (_currentUser.Role == "SuperAdmin" ||
                     _currentUser.Role == "AdminEmployee" ||
                     _currentUser.Role == "Supervisor")
@@ -514,7 +514,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     request.QuoteId,
                     accountId);
 
-                // 2. തിരഞ്ഞെടുത്ത ക്വോട്ട് പരിശോധിക്കുന്നു
                 var enquiryQuote = await _enquiryQuoteRepository
                     .GetEnquiryQuoteQuery()
                     .FirstOrDefaultAsync(
@@ -530,7 +529,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     return Result<string>.NotFound("No selected Quote for enquiry found");
                 }
 
-                // 3. എൻക്വയറി പരിശോധിക്കുന്നു
                 var enquiry = await _enquiryRepository
                     .GetEnquiryQueryable()
                     .FirstOrDefaultAsync(x => x.Id == enquiryQuote.EnquiryId, cancellationToken);
@@ -541,7 +539,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     return Result<string>.NotFound("Enquiry not found.");
                 }
 
-                // 4. നിർബന്ധിത ഡോക്യുമെന്റുകൾ വാലിഡേറ്റ് ചെയ്യുന്നു
                 var documentValidation = await ValidateMandatoryDocumentsAsync(enquiry.Id);
                 if (!documentValidation.IsSuccess)
                 {
@@ -553,7 +550,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     return Result<string>.Failure(documentValidation.Message, documentValidation.StatusCode);
                 }
 
-                // 5. ആക്ടീവ് പേയ്‌മെന്റ് ഡ്യൂപ്ലിക്കേഷൻ ചെക്ക്
+                await _unitOfWork.BeginTransactionAsync();
                 var hasActivePayment = await _policyPaymentRepository
                     .GetPolicyPaymentQueryable()
                     .AnyAsync(x =>
@@ -564,6 +561,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 if (hasActivePayment)
                 {
+                    await _unitOfWork.RollbackTransactionAsync();
                     _logger.LogWarning(
                         "Duplicate policy payment submission. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}",
                         request.EnquiryId,
@@ -572,9 +570,15 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     return Result<string>.Failure("A payment request has already been submitted for this quote.");
                 }
 
-                // 6. പേയ്‌മെന്റ് മോഡ് അനുസരിച്ചുള്ള മുൻകൂർ പരിശോധനകൾ
                 Ledger? ledger = null;
+                BankAccount? bankAccount = null;
                 decimal netPayableAmount = enquiryQuote.Premium - enquiryQuote.AgentPoints;
+
+                if (enquiryQuote.Premium <= 0m || netPayableAmount <= 0m)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return Result<string>.Failure("Policy premium and net payable amount must both be positive.", 400);
+                }
 
                 if (request.UseLedger)
                 {
@@ -582,12 +586,14 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                     if (ledger == null)
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         _logger.LogWarning("Ledger not found. AccountId: {AccountId}", accountId);
                         return Result<string>.NotFound("No ledger account found");
                     }
 
                     if (ledger.AvailableBalance < netPayableAmount)
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         _logger.LogWarning(
                             "Insufficient ledger balance. AccountId: {AccountId}, Balance: {Balance}, Required: {Required}",
                             accountId,
@@ -601,19 +607,27 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     if (string.IsNullOrWhiteSpace(request.TransactionId))
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         return Result<string>.Failure("Transaction Id is required", 400);
                     }
 
                     if (!request.BankAccountId.HasValue)
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         return Result<string>.Failure("Bank account is required for bank transfer.", 400);
+                    }
+
+                    bankAccount = await _bankAccountRepository.GetQueryable()
+                        .FirstOrDefaultAsync(
+                            x => x.Id == request.BankAccountId.Value && x.IsActive,
+                            cancellationToken);
+                    if (bankAccount == null)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.NotFound("Active bank account not found.");
                     }
                 }
 
-                // --- ഡാറ്റാബേസ് ട്രാൻസാക്ഷൻ ആരംഭിക്കുന്നു ---
-                await _unitOfWork.BeginTransactionAsync();
-
-                // 7. ലെഡ്ജർ അപ്‌ഡേഷൻ (യഥാർത്ഥത്തിൽ കുറയ്ക്കുന്ന Net തുക തന്നെ Transaction-ലും നൽകുന്നു)
                 if (request.UseLedger && ledger != null)
                 {
                     var balanceBefore = ledger.AvailableBalance;
@@ -627,7 +641,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     {
                         Id = Guid.NewGuid(),
                         LedgerId = ledger.Id,
-                        TransactionType = "Debit",
+                        TransactionType = "Consumption",
                         Amount = netPayableAmount,
                         BalanceBefore = balanceBefore,
                         BalanceAfter = ledger.AvailableBalance,
@@ -643,7 +657,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     await _ledgerTransactionRepository.AddLedgerTransaction(ledgerTransaction);
                 }
 
-                // 8. മുൻപത്തെ ക്വോട്ടുകളുടെ സെലക്ഷൻ ഒഴിവാക്കുന്നു
                 var quotes = await _enquiryQuoteRepository
                     .GetEnquiryQuoteQuery()
                     .Where(x => x.EnquiryId == enquiry.Id)
@@ -656,7 +669,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     quote.SelectedAt = null;
                 }
 
-                // നിലവിലെ ക്വോട്ട് സെലക്ട് ചെയ്യുന്നു
                 enquiryQuote.IsSelected = true;
                 enquiryQuote.SelectedAt = DateTime.UtcNow;
                 enquiryQuote.SelectedByUserId = _currentUser.UserId;
@@ -666,15 +678,14 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                                    _currentUser.Role == "AdminEmployee" ||
                                    _currentUser.Role == "Supervisor";
 
-                // 9. പേയ്‌മെന്റ് റെക്കോർഡ് ക്രിയേറ്റ് ചെയ്യുന്നു
                 var policyPayment = new PolicyPayment
                 {
                     Id = Guid.NewGuid(),
                     EnquiryId = enquiry.Id,
                     EnquiryQuoteId = enquiryQuote.Id,
                     AccountId = accountId,
-                    Amount = enquiryQuote.Premium,
-                    PaymentMode = request.UseLedger ? "Ledger" : "BankTransfer",
+                    Amount = netPayableAmount, // Changed from enquiryQuote.Premium to netPayableAmount
+                    PaymentMode = request.UseLedger ? "ManualWallet" : "BankTransfer",
                     TransactionId = request.TransactionId,
                     ReferenceNumber = $"PP{Random.Shared.Next(10, 100):D2}",
                     Status = isAdminRole ? "Approved" : "Pending",
@@ -688,15 +699,14 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 await _policyPaymentRepository.AddAsync(policyPayment);
 
-                // 10. ബാങ്ക് ട്രാൻസ്ഫർ റെക്കോർഡ്
-                if (!request.UseLedger && request.BankAccountId.HasValue)
+                if (!request.UseLedger && isAdminRole && bankAccount != null)
                 {
                     var bankTransaction = new BankTransaction
                     {
                         Id = Guid.NewGuid(),
                         BankAccountId = request.BankAccountId.Value,
                         TransactionType = "Credit",
-                        Amount = enquiryQuote.Premium,
+                        Amount = netPayableAmount, // Changed from enquiryQuote.Premium to netPayableAmount
                         Category = "PolicyPayment",
                         Description = $"Policy payment received for enquiry {enquiry.Id}",
                         PolicyPaymentId = policyPayment.Id,
@@ -709,9 +719,12 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     };
 
                     await _bankTransactionRepository.AddAsync(bankTransaction, cancellationToken);
+
+                    bankAccount.CurrentBalance += netPayableAmount; // Changed from enquiryQuote.Premium to netPayableAmount
+                    bankAccount.UpdatedAt = DateTime.UtcNow;
+                    _bankAccountRepository.Update(bankAccount);
                 }
 
-                // 11. എൻക്വയറി സ്റ്റാറ്റസും സ്റ്റെപ്പും അപ്‌ഡേറ്റ് ചെയ്യുന്നു
                 if (isAdminRole)
                 {
                     enquiry.Status = EnquiryStatus.PolicyInProgress.ToString();
@@ -725,15 +738,12 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 enquiry.UpdatedAt = DateTime.UtcNow;
                 enquiry.SelectedQuoteId = enquiryQuote.Id;
 
-                // പേയ്‌മെന്റ് സബ്മിറ്റ് ചെയ്തു കഴിഞ്ഞാൽ പോളിസി പ്രിവ്യൂ & അപ്‌ലോഡ് ചെയ്യുന്ന Step 5-ലേക്ക് മാറുന്നു
                 enquiry.CurrentStep = 5;
 
                 _enquiryRepository.Update(enquiry);
 
-                // ട്രാൻസാക്ഷൻ കൺഫേം ചെയ്യുന്നു
                 await _unitOfWork.CommitTransactionAsync();
 
-                // 12. അഡ്മിൻ നോട്ടിഫിക്കേഷൻ അയക്കുന്നു
                 await _notificationService.SendToRolesAsync(
                     new NotificationMessage
                     {
@@ -987,11 +997,30 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             try
             {
                 var enquiry = await _enquiryRepository.GetEnquiryQueryable()
+                    .Include(x => x.Tenant)
+                        .ThenInclude(x => x!.AgentClass)
                     .FirstOrDefaultAsync(x => x.Id == request.EnquiryId, cancellationToken);
                 if (enquiry == null)
                 {
                     return Result<bool>.Failure("Enquiry not found.", 404);
                 }
+                if (request.AgentClassCommissionApplicable && enquiry.Tenant?.AgentClass == null)
+                {
+                    return Result<bool>.Failure("The enquiry's agent class could not be found for commission calculation.", 400);
+                }
+
+                var commissionPercentage = request.AgentClassCommissionApplicable
+                    ? enquiry.Tenant!.AgentClass!.CommSharePercentage
+                    : 0m;
+                if (commissionPercentage is < 0m or > 100m)
+                {
+                    return Result<bool>.Failure("Agent class commission percentage must be between 0 and 100.", 400);
+                }
+
+                var commissionDeduction = Math.Round(
+                    request.AgentPoints * commissionPercentage / 100m,
+                    2,
+                    MidpointRounding.AwayFromZero);
                 var quote = new EnquiryQuote
                 {
                     Id = Guid.NewGuid(),
@@ -1000,8 +1029,11 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     VendorId = request.VendorId,
                     Premium = request.Premium,
                     CompanyPayable = request.CompanyPayable,
-                    AgentPoints = request.AgentPoints,
-                    AdminProfit = request.AdminProfit,
+                    AgentPoints = request.AgentPoints - commissionDeduction,
+                    AdminProfit = request.AdminProfit + commissionDeduction,
+                    AgentClassCommissionApplied = request.AgentClassCommissionApplicable,
+                    AgentClassCommissionPercentage = commissionPercentage,
+                    AgentClassCommissionDeduction = commissionDeduction,
                     Remarks = request.Remarks,
                     Idv = request.Idv,
                     IsManualQuote = true,
@@ -1085,6 +1117,9 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         IDV = x.Idv,
                         Premium = x.Premium,
                         AgentPoints = x.AgentPoints,
+                        AgentClassCommissionApplied = x.AgentClassCommissionApplied,
+                        AgentClassCommissionPercentage = x.AgentClassCommissionPercentage,
+                        AgentClassCommissionDeduction = x.AgentClassCommissionDeduction,
                         Remarks = x.Remarks,
                         QuoteDate = x.CreatedAt,
                         IsSelected = x.IsSelected

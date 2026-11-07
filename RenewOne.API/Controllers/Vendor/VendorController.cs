@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using RenewOne.Application.DTOs.Request.Vendor;
 using RenewOne.Application.Interfaces.LogicService.Vendors;
 
@@ -7,6 +8,7 @@ namespace RenewOne.API.Controllers.Vendor
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
     public class VendorController : ControllerBase
     {
         private readonly IVendorLogicService _vendorService;

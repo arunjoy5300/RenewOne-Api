@@ -4,6 +4,7 @@ using RenewOne.Application.DTOs.Request.Vendor;
 using RenewOne.Application.DTOs.Response.Vendor;
 using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Vendors;
+using RenewOne.Application.Interfaces.Repositories.BankAccounts;
 using RenewOne.Application.Interfaces.Repositories.Vendor;
 using RenewOne.Domain.Entities;
 
@@ -13,13 +14,40 @@ namespace RenewOne.Application.LogicService.Vendors
     {
         private readonly IVendorRepository _vendorRepository;
         private readonly IUnitOfWork _unitOfWork;
-        public VendorLogicService(IVendorRepository vendorRepository, IUnitOfWork unitOfWork)
+        private readonly IBankAccountRepository _bankAccountRepository;
+        public VendorLogicService(
+            IVendorRepository vendorRepository,
+            IUnitOfWork unitOfWork,
+            IBankAccountRepository bankAccountRepository)
         {
             _vendorRepository = vendorRepository;
             _unitOfWork = unitOfWork;
+            _bankAccountRepository = bankAccountRepository;
         }
         public async Task<Result<VendorResponse>> CreateVendorAsync(CreateVendorRequest request,CancellationToken ct)
         {
+            if (string.IsNullOrWhiteSpace(request.Name) ||
+                string.IsNullOrWhiteSpace(request.Phone) ||
+                string.IsNullOrWhiteSpace(request.Email))
+            {
+                return Result<VendorResponse>.Failure(
+                    "Vendor name, phone, and email are required.",
+                    400);
+            }
+
+            Guid? bankAccountId = null;
+            if (request.BankAccountId.HasValue && request.BankAccountId.Value != Guid.Empty)
+            {
+                var bankAccount = await _bankAccountRepository.GetByIdAsync(request.BankAccountId.Value);
+                if (bankAccount == null || !bankAccount.IsActive)
+                {
+                    return Result<VendorResponse>.Failure(
+                        "The selected bank account does not exist or is inactive.",
+                        400);
+                }
+
+                bankAccountId = bankAccount.Id;
+            }
 
             var lastVendorCode = await _vendorRepository
                 .GetQueryable()
@@ -48,7 +76,7 @@ namespace RenewOne.Application.LogicService.Vendors
                 Code = vendorCode,
                 Phone = request.Phone.Trim(),
                 Email = request.Email.Trim(),
-                BankAccountId = request.BankAccountId,
+                BankAccountId = bankAccountId,
                 IsActive = true
             };
 

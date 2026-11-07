@@ -12,7 +12,7 @@ namespace RenewOne.Application.Interfaces.LogicService.BankAccounts
 
         Task<Result<string>> UpdateAsync(UpdateBankAccountRequest request);
 
-        Task<Result<string>> ChangeStatusAsync(Guid id, bool isActive);
+        Task<Result<string>> ChangeStatusAsync(Guid id);
 
         Task<Result<BankAccountResponse>> GetByIdAsync(Guid id);
 

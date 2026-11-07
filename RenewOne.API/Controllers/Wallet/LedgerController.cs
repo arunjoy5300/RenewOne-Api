@@ -13,10 +13,11 @@ namespace RenewOne.API.Controllers.Wallet
         {
             _ledgerLogicService = ledgerLogicService;
         }
-        [HttpPost("add-ledger-balance")]
-        public async Task<IActionResult> AddLedgerBalance([FromQuery]Guid accountId,WalletRechargeRequest request)
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = "SuperAdmin,Supervisor")]
+        [HttpPost("adjust-manual-wallet")]
+        public async Task<IActionResult> AdjustManualWallet([FromBody] WalletAdjustmentRequest request)
         {
-            var response = await _ledgerLogicService.AddLedgerAsync(request, accountId);
+            var response = await _ledgerLogicService.AdjustManualWalletAsync(request);
             return StatusCode(response.StatusCode, response);
         }
     }

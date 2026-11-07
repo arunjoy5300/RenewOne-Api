@@ -6,7 +6,7 @@ namespace RenewOne.Application.DTOs.Response.Enquiry
 {
     public class EnquiryLedgerDetails
     {
-        public decimal LedgerBalance { get; set; }
+        public decimal ManualWalletBalance { get; set; }
         public decimal FinalAmount { get; set; }
         public decimal BalanceAfterCut { get; set; }
     }

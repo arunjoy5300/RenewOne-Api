@@ -219,6 +219,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpPost("admin/vendor-settlement")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> SubmitVendorSettlement([FromBody] SubmitVendorSettlementRequest request,CancellationToken ct)
         {
             var result = await _enquiryLogicService
@@ -228,6 +229,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpGet("admin/vendor-settlement-status/{enquiryId:guid}")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> IsVendorSettlementCompleted(Guid enquiryId,CancellationToken ct)
         {
             var result = await _enquiryLogicService

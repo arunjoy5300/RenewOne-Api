@@ -8,6 +8,7 @@ using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.EnquiryQuote;
 using RenewOne.Application.Interfaces.Repositories.AdminEntry.QRManaging;
+using RenewOne.Application.Interfaces.Repositories.BankAccounts;
 using RenewOne.Application.Interfaces.Repositories.Enquiry;
 using RenewOne.Application.Interfaces.Repositories.UserLedger;
 using RenewOne.Application.Interfaces.Services.LoggedUser;
@@ -26,6 +27,8 @@ namespace RenewOne.Application.LogicService.PolicyPayments
         private readonly IEnquiryRepository _enquiryRepository;
         private readonly IEnquiryQuoteRepository _enquiryQuoteRepository;
         private readonly IQRMappingRepository _qrMappingRepository;
+        private readonly IBankAccountRepository _bankAccountRepository;
+        private readonly IBankTransactionRepository _bankTransactionRepository;
         #endregion
 
         #region Constructor
@@ -36,7 +39,9 @@ namespace RenewOne.Application.LogicService.PolicyPayments
             ICurrentUserService currentUserService,
             IEnquiryRepository enquiryRepository,
             IEnquiryQuoteRepository enquiryQuoteRepository,
-            IQRMappingRepository qrMappingRepository)
+            IQRMappingRepository qrMappingRepository,
+            IBankAccountRepository bankAccountRepository,
+            IBankTransactionRepository bankTransactionRepository)
         {
             _policyPaymentRepository = policyPaymentRepository;
             _logger = logger;
@@ -45,6 +50,8 @@ namespace RenewOne.Application.LogicService.PolicyPayments
             _enquiryRepository = enquiryRepository;
             _enquiryQuoteRepository = enquiryQuoteRepository;
             _qrMappingRepository = qrMappingRepository;
+            _bankAccountRepository = bankAccountRepository;
+            _bankTransactionRepository = bankTransactionRepository;
         }
         #endregion
 
@@ -63,31 +70,63 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                 var policyPayment = await _policyPaymentRepository.GetByIdAsync(request.PolicyPaymentId);
                 if(policyPayment == null)
                 {
+                    await _unitOfWork.RollbackTransactionAsync();
                     return Result<string>.NotFound($"No payment found for PolicyPaymentId: {request.PolicyPaymentId}");
                 }
-                if (policyPayment == null)
+                if (!string.Equals(policyPayment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
                 {
                     await _unitOfWork.RollbackTransactionAsync();
-
-                    _logger.LogWarning(
-                        "Policy payment not found. PolicyPaymentId: {PolicyPaymentId}",
-                        request.PolicyPaymentId);
-
-                    return Result<string>.NotFound("Policy payment not found.");
+                    return Result<string>.Failure("Only pending payments can be approved.", 409);
                 }
 
-                //// Validate Status
-                //if (policyPayment.Status != "Pending")
-                //{
-                //    await _unitOfWork.RollbackTransactionAsync();
+                if (string.Equals(policyPayment.PaymentMode, "BankTransfer", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!policyPayment.BankAccountId.HasValue || policyPayment.Amount <= 0m)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.Failure("A positive payment amount and bank account are required to approve this bank transfer.", 400);
+                    }
 
-                //    _logger.LogWarning(
-                //        "Policy payment is already processed. PolicyPaymentId: {PolicyPaymentId}",
-                //        request.PolicyPaymentId);
+                    var bankAccount = await _bankAccountRepository.GetByIdAsync(policyPayment.BankAccountId.Value);
+                    if (bankAccount == null)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.NotFound("The bank account linked to this payment no longer exists.");
+                    }
 
-                //    return Result<string>.Failure(
-                //        "Only pending payments can be approved.");
-                //}
+                    var existingCredits = await _bankTransactionRepository.GetQueryable()
+                        .Where(x => x.PolicyPaymentId == policyPayment.Id && x.TransactionType == "Credit")
+                        .ToListAsync(cancellationToken);
+                    if (existingCredits.Count > 1 || existingCredits.Any(x =>
+                        x.BankAccountId != bankAccount.Id || x.Amount != policyPayment.Amount))
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.Failure("Existing bank credits for this payment are inconsistent. Reconcile them before approval.", 409);
+                    }
+
+                    if (existingCredits.Count == 0)
+                    {
+                        var bankTransaction = new BankTransaction
+                        {
+                            Id = Guid.NewGuid(),
+                            BankAccountId = bankAccount.Id,
+                            TransactionType = "Credit",
+                            Amount = policyPayment.Amount,
+                            Category = "PolicyPayment",
+                            Description = $"Verified policy payment received for enquiry {policyPayment.EnquiryId}",
+                            PolicyPaymentId = policyPayment.Id,
+                            UserId = policyPayment.SubmittedByUserId,
+                            TransactionDate = DateTime.UtcNow,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+                        await _bankTransactionRepository.AddAsync(bankTransaction, cancellationToken);
+                    }
+
+                    bankAccount.CurrentBalance += policyPayment.Amount;
+                    bankAccount.UpdatedAt = DateTime.UtcNow;
+                    _bankAccountRepository.Update(bankAccount);
+                }
 
                 // Update Policy Payment
                 policyPayment.Status = "Approved";
@@ -150,21 +189,11 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                 var policyPayment = await _policyPaymentRepository.GetByIdAsync(request.PolicyPaymentId);
                 if (policyPayment == null)
                 {
+                    await _unitOfWork.RollbackTransactionAsync();
                     return Result<string>.NotFound($"No payment found for PolicyPaymentId: {request.PolicyPaymentId}");
                 }
-                if (policyPayment == null)
-                {
-                    await _unitOfWork.RollbackTransactionAsync();
-
-                    _logger.LogWarning(
-                        "Policy payment not found. PolicyPaymentId: {PolicyPaymentId}",
-                        request.PolicyPaymentId);
-
-                    return Result<string>.NotFound("Policy payment not found.");
-                }
-
                 // Validate Status
-                if (policyPayment.Status != "Pending")
+                if (!string.Equals(policyPayment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
                 {
                     await _unitOfWork.RollbackTransactionAsync();
 
@@ -174,6 +203,30 @@ namespace RenewOne.Application.LogicService.PolicyPayments
 
                     return Result<string>.Failure(
                         "Only pending payments can be rejected.");
+                }
+
+                // Older versions wrote the bank credit at submission time. Add a matching
+                // audit debit when one of those still-pending transfers is rejected.
+                var legacyCredits = await _bankTransactionRepository.GetQueryable()
+                    .Where(x => x.PolicyPaymentId == policyPayment.Id && x.TransactionType == "Credit")
+                    .ToListAsync(cancellationToken);
+                foreach (var legacyCredit in legacyCredits)
+                {
+                    var reversal = new BankTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        BankAccountId = legacyCredit.BankAccountId,
+                        TransactionType = "Debit",
+                        Amount = legacyCredit.Amount,
+                        Category = "PolicyPaymentReversal",
+                        Description = $"Reversal of unverified policy payment rejected for enquiry {policyPayment.EnquiryId}",
+                        PolicyPaymentId = policyPayment.Id,
+                        UserId = policyPayment.SubmittedByUserId,
+                        TransactionDate = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _bankTransactionRepository.AddAsync(reversal, cancellationToken);
                 }
 
                 // Update Policy Payment
@@ -343,7 +396,7 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                 PaymentMode =
                     pp.PaymentMode,
 
-                LedgerBalance =
+                ManualWalletBalance =
                     pp.Account.Ledger.AvailableBalance.ToString(),
 
                 TransactionId =

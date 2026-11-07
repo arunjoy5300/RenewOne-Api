@@ -5,6 +5,7 @@
         public Guid AccountId { get; set; }
         public Guid UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
+        public string UserType { get; set; } = string.Empty;
         public string GeneratedPassword { get; set; } = string.Empty;
         public DateTime ResetAt { get; set; }
     }

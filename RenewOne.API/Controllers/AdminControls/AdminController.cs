@@ -47,7 +47,7 @@ namespace RenewOne.API.Controllers.AdminControls
             else
                 return StatusCode((int)result.StatusCode, result);
         }
-        [Authorize(Roles = "SuperAdmin")]
+        [Authorize(Roles = "SuperAdmin,Supervisor")]
         [HttpPost("wallet/transactions")]
         public async Task<IActionResult> AdjustWallet(WalletAdjustmentRequest request)
         {

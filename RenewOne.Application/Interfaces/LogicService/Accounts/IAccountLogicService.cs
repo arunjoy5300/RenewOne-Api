@@ -14,6 +14,7 @@ namespace RenewOne.Application.Interfaces.LogicService.Accounts
         Task<Result<PagedResponse<AgentLookupResponse>>> GetAgentLookupAsync(AgentLookupRequest request);
         Task<Result<UserProfileResponse>> GetUserProfileAsync(Guid userId);
         Task<Result<AgentAdminDetailsResponse>> GetAgentDetailsByAccountIdAsync(Guid accountId, CancellationToken cancellationToken = default);
+        Task<Result<AgentAdminDetailsResponse>> UpdateAgentAdminDetailsAsync(Guid accountId, UpdateAgentAdminDetailsRequest request, CancellationToken cancellationToken = default);
         Task<Result<AgentDashboardOverviewResponse>> GetAgentDashboardOverviewAsync(Guid accountId, CancellationToken cancellationToken = default);
         Task<Result<List<AgentDropdownDto>>> GetAgentDropdownAsync(CancellationToken cancellationToken = default);
     }

@@ -830,7 +830,7 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                 var response = new EnquiryLedgerDetails
                 {
-                    LedgerBalance = ledger.AvailableBalance,
+                    ManualWalletBalance = ledger.AvailableBalance,
                     FinalAmount = finalBalance,
                     BalanceAfterCut = ledger.AvailableBalance - finalBalance
                 };
@@ -2383,23 +2383,23 @@ namespace RenewOne.Application.LogicService.Enquiry
                     ReferenceNumber = x.ReferenceNumber,
 
                     // Ledger
-                    AgentLedgerName = x.PaymentMode == "Ledger"
+                    AgentLedgerName = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? x.Account.AgentName
                         : null,
 
-                    AgentTotalLimit = x.PaymentMode == "Ledger"
-                        ? x.Account.Ledger.CreditLimit
-                        : null,
+                    ManualWalletBalance = x.Account.Ledger != null
+                        ? x.Account.Ledger.AvailableBalance
+                        : 0m,
 
-                    CurrentBalance = x.PaymentMode == "Ledger"
+                    CurrentBalance = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? x.Account.Ledger.AvailableBalance
                         : null,
 
-                    TransactionId = x.PaymentMode == "Ledger"
+                    TransactionId = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? null
                         : x.TransactionId,
 
-                    LedgerPaymentTime = x.PaymentMode == "Ledger"
+                    LedgerPaymentTime = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? x.SubmittedAt
                         : null,
 
@@ -2789,6 +2789,31 @@ namespace RenewOne.Application.LogicService.Enquiry
                                 400);
                         }
 
+                        if (quote.CompanyPayable <= 0m)
+                        {
+                            return Result<bool>.Failure(
+                                "Vendor payment amount must be greater than zero.",
+                                400);
+                        }
+
+                        await _unitOfWork.BeginTransactionAsync();
+                        try
+                        {
+                            var existingPayment = await _vendorTransactionRepository
+                                .GetQueryable()
+                                .AnyAsync(x =>
+                                    x.EnquiryId == request.EnquiryId &&
+                                    x.TransactionType == VendorTransactionType.VendorPayment.ToString(),
+                                    ct);
+
+                            if (existingPayment)
+                            {
+                                await _unitOfWork.RollbackTransactionAsync();
+                                return Result<bool>.Failure(
+                                    "A vendor payment has already been recorded for this enquiry.",
+                                    409);
+                            }
+
                         var bankAccount = await _bankAccountRepository
                             .GetQueryable()
                             .FirstOrDefaultAsync(
@@ -2798,15 +2823,22 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                         if (bankAccount == null)
                         {
+                            await _unitOfWork.RollbackTransactionAsync();
                             return Result<bool>.NotFound(
                                 "Bank account not found.");
                         }
 
+                            if (bankAccount.CurrentBalance < quote.CompanyPayable)
+                            {
+                                await _unitOfWork.RollbackTransactionAsync();
+                                return Result<bool>.Failure(
+                                    "Insufficient bank account balance for this vendor payment.",
+                                    409);
+                            }
+
                         var previousBalance = await GetVendorBalance(
                             request.VendorId,
                             ct);
-
-                        var previousBankBalance = bankAccount.OpeningBalance;
 
                         // Vendor transaction
                         var vendorTransaction = new VendorTransaction
@@ -2865,7 +2897,18 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                         _bankAccountRepository.Update(bankAccount);
 
-                        break;
+                            await _unitOfWork.CommitTransactionAsync();
+                            return Result<bool>.Success(
+                                true,
+                                "Vendor payment recorded successfully.");
+                        }
+                        catch (Exception ex)
+                        {
+                            await _unitOfWork.RollbackTransactionAsync();
+                            _logger.LogError(ex, "Failed to record vendor bank payment for enquiry {EnquiryId}.", request.EnquiryId);
+                            return Result<bool>.Failure("Failed to record vendor payment.", 500);
+                        }
+
                     }
 
                 default:

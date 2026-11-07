@@ -11,6 +11,9 @@ namespace RenewOne.Domain.Entities
         public decimal CompanyPayable { get; set; }
         public decimal AgentPoints { get; set; }
         public decimal AdminProfit { get; set; }
+        public bool AgentClassCommissionApplied { get; set; }
+        public decimal AgentClassCommissionPercentage { get; set; }
+        public decimal AgentClassCommissionDeduction { get; set; }
         public decimal? Idv { get; set; }
         public bool IsManualQuote { get; set; }
         public string? Remarks { get; set; }

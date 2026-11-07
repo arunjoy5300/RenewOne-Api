@@ -52,6 +52,8 @@ namespace RenewOne.Application.LogicService.Wallet
 
         public async Task<Result<bool>> AdjustWalletAsync(WalletAdjustmentRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Remarks))
+                return Result<bool>.Failure("A reason is required for wallet adjustments.", 400);
             await _unitOfWork.BeginTransactionAsync();
             try
             {

@@ -59,6 +59,9 @@ namespace RenewOne.Application.DTOs.Response.Enquiry
         public decimal? IDV { get; set; }
         public decimal Premium { get; set; }
         public decimal AgentPoints { get; set; }
+        public bool AgentClassCommissionApplied { get; set; }
+        public decimal AgentClassCommissionPercentage { get; set; }
+        public decimal AgentClassCommissionDeduction { get; set; }
         public string? Remarks { get; set; }
         public DateTime? QuoteDate { get; set; }
         public bool? IsSelected { get; set; }

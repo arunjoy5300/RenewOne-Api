@@ -5,9 +5,7 @@ namespace RenewOne.Domain.Entities
     public class Ledger: BaseEntity
     {
         public Guid AccountId { get; set; }
-        public decimal CreditLimit { get; set; }
-
-        // Remaining credit available
+        // Prepaid balance managed by admins and consumed by policy payments.
         public decimal AvailableBalance { get; set; }
         public bool IsActive { get; set; }
         public virtual Account Account { get; set; }

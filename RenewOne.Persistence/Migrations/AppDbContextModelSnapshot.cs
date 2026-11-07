@@ -100,7 +100,7 @@ namespace RenewOne.Persistence.Migrations
                         {
                             Id = new Guid("550e8400-e29b-41d4-a716-446655440000"),
                             ClassName = "Premium",
-                            CommSharePercentage = 15m,
+                            CommSharePercentage = 5m,
                             CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         },
@@ -108,7 +108,7 @@ namespace RenewOne.Persistence.Migrations
                         {
                             Id = new Guid("550e8400-e29b-41d4-a716-446655440001"),
                             ClassName = "Standard",
-                            CommSharePercentage = 10m,
+                            CommSharePercentage = 15m,
                             CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         },
@@ -116,7 +116,7 @@ namespace RenewOne.Persistence.Migrations
                         {
                             Id = new Guid("550e8400-e29b-41d4-a716-446655440002"),
                             ClassName = "Basic",
-                            CommSharePercentage = 5m,
+                            CommSharePercentage = 15m,
                             CreatedAt = new DateTime(2026, 6, 6, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         });
@@ -400,6 +400,15 @@ namespace RenewOne.Persistence.Migrations
                     b.Property<decimal>("AdminProfit")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<bool>("AgentClassCommissionApplied")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("AgentClassCommissionDeduction")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AgentClassCommissionPercentage")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("AgentPoints")
                         .HasColumnType("decimal(18,2)");
 
@@ -577,9 +586,6 @@ namespace RenewOne.Persistence.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<decimal>("CreditLimit")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
