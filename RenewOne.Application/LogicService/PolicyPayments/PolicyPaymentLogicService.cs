@@ -73,11 +73,11 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     await _unitOfWork.RollbackTransactionAsync();
                     return Result<string>.NotFound($"No payment found for PolicyPaymentId: {request.PolicyPaymentId}");
                 }
-                if (!string.Equals(policyPayment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-                {
-                    await _unitOfWork.RollbackTransactionAsync();
-                    return Result<string>.Failure("Only pending payments can be approved.", 409);
-                }
+                //if (!string.Equals(policyPayment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+                //{
+                //    await _unitOfWork.RollbackTransactionAsync();
+                //    return Result<string>.Failure("Only pending payments can be approved.", 409);
+                //}
 
                 if (string.Equals(policyPayment.PaymentMode, "BankTransfer", StringComparison.OrdinalIgnoreCase))
                 {

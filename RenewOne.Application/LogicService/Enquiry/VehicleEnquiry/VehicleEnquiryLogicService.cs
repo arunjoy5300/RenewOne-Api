@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Helper;
@@ -393,10 +393,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         return Result<EnquirySubmitResponse>.Failure("Invalid Cubic Capacity");
                     }
 
-                    var pricingMasters = (await _pricingMasterRepository.GetTPPricing(
-                        enquiry.VehicleEnquiryDetails.VehicleTypeId,
-                        account.AgentClassId,
-                        (int)ccValue)).ToList();
+                    var pricingMasters = (await _pricingMasterRepository.GetTPPricing(enquiry.VehicleEnquiryDetails.VehicleTypeId, account.AgentClassId, (int)ccValue, enquiry.VehicleEnquiryDetails?.VehicleDetails?.FuelType)).ToList();
 
                     if (pricingMasters.Count > 0)
                     {
