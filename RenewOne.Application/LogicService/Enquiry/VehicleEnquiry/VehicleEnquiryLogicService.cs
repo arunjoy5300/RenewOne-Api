@@ -847,6 +847,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         {
             var payment = await _policyPaymentRepository
                 .GetQueryable()
+                .OrderByDescending(x => x.SubmittedAt)
                 .FirstOrDefaultAsync(x => x.EnquiryId == enquiryId);
 
             if(payment == null)
@@ -859,7 +860,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             {
                 CustomerName = payment.Enquiry.CustomerName,
                 CustomerNumber = payment.Enquiry.CustomerNumber,
-                VehicleNumber = payment.Enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber,
+                VehicleNumber = payment.Enquiry.VehicleEnquiryDetails?.VehicleDetails?.VehicleNumber ?? string.Empty,
                 PaymentMode = payment.PaymentMode,
                 PaymentStatus = payment.Status,
                 Premium = payment.Amount,
@@ -867,7 +868,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 EnquiryId = payment.EnquiryId,
                 PolicyPaymentId = payment.Id,
                 SubmittedAt = payment.SubmittedAt,
-                SubmittedBy = payment.SubmittedByUser.FullName,
+                SubmittedBy = payment.SubmittedByUser?.FullName ?? string.Empty,
                 TransactionId = payment.TransactionId
             };
 

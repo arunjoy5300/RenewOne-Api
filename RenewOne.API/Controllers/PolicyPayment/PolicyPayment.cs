@@ -48,6 +48,7 @@ namespace RenewOne.API.Controllers.PolicyPayment
         }
 
         [HttpGet("{enquiryId:guid}/details")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> GetPolicyPaymentDetails(
             Guid enquiryId,
             CancellationToken cancellationToken)

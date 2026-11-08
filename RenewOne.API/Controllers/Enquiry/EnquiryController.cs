@@ -239,6 +239,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpPut("admin/change-status")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> ChangeEnquiryStatus(ChangeEnquiryStatusRequest request,CancellationToken ct)
         {
             var result = await _enquiryLogicService

@@ -73,11 +73,11 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     await _unitOfWork.RollbackTransactionAsync();
                     return Result<string>.NotFound($"No payment found for PolicyPaymentId: {request.PolicyPaymentId}");
                 }
-                //if (!string.Equals(policyPayment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-                //{
-                //    await _unitOfWork.RollbackTransactionAsync();
-                //    return Result<string>.Failure("Only pending payments can be approved.", 409);
-                //}
+                if (!string.Equals(policyPayment.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return Result<string>.Failure("Only pending payments can be approved.", 409);
+                }
 
                 if (string.Equals(policyPayment.PaymentMode, "BankTransfer", StringComparison.OrdinalIgnoreCase))
                 {
@@ -373,16 +373,18 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                 var policyPayment = await _policyPaymentRepository
             .GetQueryable()
             .Where(pp => pp.EnquiryId == enquiryId)
+            .OrderByDescending(pp => pp.SubmittedAt)
             .Select(pp => new PolicyPaymentDetailsDto
             {
                 PolicyPaymentId = pp.Id,
+                PaymentStatus = pp.Status,
                 EnquiryId = $"ENQ-{pp.EnquiryId.ToString().Substring(pp.EnquiryId.ToString().Length - 4, 4).ToUpper()}",
                 FullName = pp.Enquiry.CustomerName,
 
                 VehicleNumber =
-                    pp.Enquiry.VehicleEnquiryDetails!
-                        .VehicleDetails!
-                        .VehicleNumber,
+                    pp.Enquiry.VehicleEnquiryDetails != null && pp.Enquiry.VehicleEnquiryDetails.VehicleDetails != null
+                        ? pp.Enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
+                        : string.Empty,
 
                 InsuranceCompanyName =
                     pp.EnquiryQuote.InsuranceCompany.CompanyName,
@@ -393,8 +395,12 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                 FinalPayableAmount =
                     pp.EnquiryQuote.Premium - pp.EnquiryQuote.AgentPoints,
 
+                PaymentAmount = pp.Amount,
+
                 PaymentMode =
                     pp.PaymentMode,
+
+                ReferenceNumber = pp.ReferenceNumber,
 
                 ManualWalletBalance =
                     pp.Account.Ledger.AvailableBalance.ToString(),
@@ -409,7 +415,15 @@ namespace RenewOne.Application.LogicService.PolicyPayments
                     pp.SubmittedByUser!.FullName,
 
                 SubmittedOn =
-                    pp.CreatedAt.ToString("dd MMM yyyy hh:mm tt")
+                    pp.SubmittedAt.ToString("dd MMM yyyy hh:mm tt"),
+
+                BankAccountId = pp.BankAccountId,
+                BankAccountName = pp.BankAccount != null ? pp.BankAccount.AccountName : null,
+                BankName = pp.BankAccount != null ? pp.BankAccount.BankName : null,
+                BankAccountNumber = pp.BankAccount != null ? pp.BankAccount.AccountNumber : null,
+                BankBranch = pp.BankAccount != null ? pp.BankAccount.BranchName : null,
+                BankIfscCode = pp.BankAccount != null ? pp.BankAccount.IFSCCode : null,
+                AccountHolderName = pp.BankAccount != null ? pp.BankAccount.AccountHolderName : null
             })
             .FirstOrDefaultAsync(ct);
 

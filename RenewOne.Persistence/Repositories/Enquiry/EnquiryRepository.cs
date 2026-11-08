@@ -21,10 +21,15 @@ namespace RenewOne.Persistence.Repositories.Enquiry
         public async Task<EnquiryEntity?> GetByIdAsync(Guid enquiryId)
         {
             return await _dbContext.Enquiries
-                .Include(x => x.InsuranceType)
+                // This read graph has two collections (documents and quotes). A single joined query
+                // multiplies their rows and repeats the large vehicle RC payload for every pair.
+                // Split queries plus no-tracking avoid that row explosion and change-tracker cost.
+                .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.Documents)
                 .Include(x => x.AssignedEmployee)
                 .Include(x => x.CreatedByUser)
+                .Include(x => x.Tenant)
                 .Include(x => x.EnquiryQuotes)
                     .ThenInclude(x => x.InsuranceCompany)
                 .Include(x => x.VehicleEnquiryDetails)

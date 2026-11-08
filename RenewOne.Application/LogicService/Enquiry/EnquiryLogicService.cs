@@ -470,11 +470,15 @@ namespace RenewOne.Application.LogicService.Enquiry
                 return Result<EnquiryDetailsResponse>.NotFound("Enquiry not found");
             }
 
+            var vehicle = enquiry.VehicleEnquiryDetails?.VehicleDetails;
+
             var response = new EnquiryDetailsResponse
             {
                 Id = enquiry.Id,
                 CustomerName = enquiry.CustomerName,
                 CustomerMobile = enquiry.CustomerNumber,
+                AgencyName = enquiry.Tenant?.AgentName ?? string.Empty,
+                AgencyNumber = enquiry.Tenant?.ContactNumber ?? string.Empty,
                 Status = enquiry.Status,
                 PolicyType = enquiry.VehicleEnquiryDetails?.MIPolicyType,
 
@@ -511,8 +515,10 @@ namespace RenewOne.Application.LogicService.Enquiry
                     .Select(d => new DocumentDto
                     {
                         Id = d.Id,
+                        DocName = d.DocType,
                         DocType = d.DocType,
                         DocSide = d.DocSide,
+                        UploadedAt = d.CreatedAt,
                         Url = d.Url
                     })
                     .ToList(),
@@ -531,45 +537,45 @@ namespace RenewOne.Application.LogicService.Enquiry
                     })
                     .ToList(),
 
-                RcDetails = new RcApiDto
+                RcDetails = vehicle is null ? null : new RcApiDto
                 {
-                    ManufacturerName = enquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturerName,
-                    Model = enquiry.VehicleEnquiryDetails.VehicleDetails.Model,
-                    FuelType = enquiry.VehicleEnquiryDetails.VehicleDetails.FuelType,
-                    CubicCapacity = enquiry.VehicleEnquiryDetails.VehicleDetails.CubicCapacity,
-                    BodyType = enquiry.VehicleEnquiryDetails.VehicleDetails.BodyType,
-                    ChassisNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.ChassisNumber,
-                    EngineNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.EngineNumber,
-                    VehicleNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber,
-                    VehicleClass = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleClass,
-                    VehicleColor = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleColor,
-                    NormsType = enquiry.VehicleEnquiryDetails.VehicleDetails.NormsType,
-                    VehicleCategory = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleCategory,
-                    GrossVehicleWeight = enquiry.VehicleEnquiryDetails.VehicleDetails.GrossVehicleWeight,
-                    UnladenWeight = enquiry.VehicleEnquiryDetails.VehicleDetails.UnladenWeight,
-                    Wheelbase = enquiry.VehicleEnquiryDetails.VehicleDetails.Wheelbase,
-                    SeatCapacity = enquiry.VehicleEnquiryDetails.VehicleDetails.SeatCapacity,
-                    CylinderCount = enquiry.VehicleEnquiryDetails.VehicleDetails.CylinderCount,
-                    IsFinanced = enquiry.VehicleEnquiryDetails.VehicleDetails.IsFinanced,
-                    OwnerName = enquiry.VehicleEnquiryDetails.VehicleDetails.OwnerName,
-                    OwnerFatherName = enquiry.VehicleEnquiryDetails.VehicleDetails.OwnerFatherName,
-                    MobileNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.MobileNumber,
-                    OwnerCount = enquiry.VehicleEnquiryDetails.VehicleDetails.OwnerCount,
-                    RegistrationAuthority = enquiry.VehicleEnquiryDetails.VehicleDetails.RegistrationAuthority,
-                    RegistrationDate = enquiry.VehicleEnquiryDetails.VehicleDetails.RegistrationDate,
-                    RcExpiryDate = enquiry.VehicleEnquiryDetails.VehicleDetails.RcExpiryDate,
-                    ManufacturingMonthYear = enquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturingMonthYear,
-                    VehicleTaxUpto = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleTaxUpto,
-                    RtoCode = enquiry.VehicleEnquiryDetails.VehicleDetails.RtoCode,
-                    InsuranceCompanyName = enquiry.VehicleEnquiryDetails.VehicleDetails.InsuranceCompanyName,
-                    InsurancePolicyNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.InsurancePolicyNumber,
-                    InsuranceValidUpto = enquiry.VehicleEnquiryDetails.VehicleDetails.InsuranceValidUpto,
-                    FinancerName = enquiry.VehicleEnquiryDetails.VehicleDetails.FinancerName,
-                    PuccNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.PuccNumber,
-                    PuccUpto = enquiry.VehicleEnquiryDetails.VehicleDetails.PuccUpto,
-                    PresentAddress = enquiry.VehicleEnquiryDetails.VehicleDetails.PresentAddress,
-                    PermanentAddress = enquiry.VehicleEnquiryDetails.VehicleDetails.PermanentAddress,
-                    RawApiResponse = enquiry.VehicleEnquiryDetails.VehicleDetails.RawApiResponse
+                    ManufacturerName = vehicle.ManufacturerName,
+                    Model = vehicle.Model,
+                    FuelType = vehicle.FuelType,
+                    CubicCapacity = vehicle.CubicCapacity,
+                    BodyType = vehicle.BodyType,
+                    ChassisNumber = vehicle.ChassisNumber,
+                    EngineNumber = vehicle.EngineNumber,
+                    VehicleNumber = vehicle.VehicleNumber,
+                    VehicleClass = vehicle.VehicleClass,
+                    VehicleColor = vehicle.VehicleColor,
+                    NormsType = vehicle.NormsType,
+                    VehicleCategory = vehicle.VehicleCategory,
+                    GrossVehicleWeight = vehicle.GrossVehicleWeight,
+                    UnladenWeight = vehicle.UnladenWeight,
+                    Wheelbase = vehicle.Wheelbase,
+                    SeatCapacity = vehicle.SeatCapacity,
+                    CylinderCount = vehicle.CylinderCount,
+                    IsFinanced = vehicle.IsFinanced,
+                    OwnerName = vehicle.OwnerName,
+                    OwnerFatherName = vehicle.OwnerFatherName,
+                    MobileNumber = vehicle.MobileNumber,
+                    OwnerCount = vehicle.OwnerCount,
+                    RegistrationAuthority = vehicle.RegistrationAuthority,
+                    RegistrationDate = vehicle.RegistrationDate,
+                    RcExpiryDate = vehicle.RcExpiryDate,
+                    ManufacturingMonthYear = vehicle.ManufacturingMonthYear,
+                    VehicleTaxUpto = vehicle.VehicleTaxUpto,
+                    RtoCode = vehicle.RtoCode,
+                    InsuranceCompanyName = vehicle.InsuranceCompanyName,
+                    InsurancePolicyNumber = vehicle.InsurancePolicyNumber,
+                    InsuranceValidUpto = vehicle.InsuranceValidUpto,
+                    FinancerName = vehicle.FinancerName,
+                    PuccNumber = vehicle.PuccNumber,
+                    PuccUpto = vehicle.PuccUpto,
+                    PresentAddress = vehicle.PresentAddress,
+                    PermanentAddress = vehicle.PermanentAddress,
+                    RawApiResponse = vehicle.RawApiResponse
                 }
             };
 
@@ -2597,10 +2603,6 @@ namespace RenewOne.Application.LogicService.Enquiry
             await _policyDetailsRepository.AddAsync(
                 policyDetails,
                 ct);
-
-            enquiryExists.Status = EnquiryStatus.PolicyIssued.ToString();
-
-            _enquiryRepository.Update(enquiryExists);
 
             await _unitOfWork.SaveChangesAsync();
 
