@@ -97,6 +97,44 @@ namespace RenewOne.Application.LogicService.Enquiry
                     filter.VehicleTypeIds.Contains(x.VehicleEnquiryDetails.VehicleTypeId));
             }
 
+            if (filter.CancellationReasons is { Count: > 0 })
+            {
+                query = query.Where(x => x.CancellationReason != null && filter.CancellationReasons.Contains(x.CancellationReason));
+            }
+
+            if (filter.CancelledByIds is { Count: > 0 })
+            {
+                query = query.Where(x => x.AssignmentHistories.Any(history =>
+                    history.ToStatus == "Cancelled" && filter.CancelledByIds.Contains(history.ChangedByUserId)));
+            }
+
+            if (filter.MissingDocumentIds is { Count: > 0 })
+            {
+                var selectedDocumentTypes = filter.MissingDocumentIds
+                    .Where(id => Enum.IsDefined(typeof(DocumentType), id))
+                    .Select(id => ((DocumentType)id).ToString())
+                    .ToArray();
+                if (selectedDocumentTypes.Length > 0)
+                {
+                    query = query.Where(x => x.Documents.Count(document =>
+                        document.IsActive && selectedDocumentTypes.Contains(document.DocType)) < selectedDocumentTypes.Length);
+                }
+            }
+
+            if (filter.AgeingRanges is { Count: > 0 })
+            {
+                var now = DateTime.UtcNow;
+                var include0To3 = filter.AgeingRanges.Contains("0-3");
+                var include4To7 = filter.AgeingRanges.Contains("4-7");
+                var include8To14 = filter.AgeingRanges.Contains("8-14");
+                var include15Plus = filter.AgeingRanges.Contains("15+");
+                query = query.Where(x =>
+                    (include0To3 && x.CreatedAt >= now.AddDays(-4)) ||
+                    (include4To7 && x.CreatedAt < now.AddDays(-4) && x.CreatedAt >= now.AddDays(-8)) ||
+                    (include8To14 && x.CreatedAt < now.AddDays(-8) && x.CreatedAt >= now.AddDays(-15)) ||
+                    (include15Plus && x.CreatedAt < now.AddDays(-15)));
+            }
+
             if (!string.IsNullOrWhiteSpace(filter.EnquiryNumber))
             {
                 query = query.Where(x =>
@@ -108,6 +146,24 @@ namespace RenewOne.Application.LogicService.Enquiry
             {
                 query = query.Where(x => x.CustomerName.Contains(filter.CustomerName));
             }
+
+            if (!string.IsNullOrWhiteSpace(filter.VehicleNumber))
+            {
+                query = query.Where(x => x.VehicleEnquiryDetails != null && x.VehicleEnquiryDetails.VehicleDetails != null && x.VehicleEnquiryDetails.VehicleDetails.VehicleNumber.Contains(filter.VehicleNumber));
+            }
+
+            if (filter.MinPremium.HasValue)
+                query = query.Where(x => x.EnquiryQuotes.Any(q => q.IsSelected && q.Premium >= filter.MinPremium.Value));
+            if (filter.MaxPremium.HasValue)
+                query = query.Where(x => x.EnquiryQuotes.Any(q => q.IsSelected && q.Premium <= filter.MaxPremium.Value));
+            if (filter.MinProfit.HasValue)
+                query = query.Where(x => x.EnquiryQuotes.Any(q => q.IsSelected && q.AdminProfit >= filter.MinProfit.Value));
+            if (filter.MaxProfit.HasValue)
+                query = query.Where(x => x.EnquiryQuotes.Any(q => q.IsSelected && q.AdminProfit <= filter.MaxProfit.Value));
+            if (filter.MinMargin.HasValue)
+                query = query.Where(x => x.EnquiryQuotes.Any(q => q.IsSelected && q.Premium > 0 && (q.AdminProfit / q.Premium * 100) >= filter.MinMargin.Value));
+            if (filter.MaxMargin.HasValue)
+                query = query.Where(x => x.EnquiryQuotes.Any(q => q.IsSelected && q.Premium > 0 && (q.AdminProfit / q.Premium * 100) <= filter.MaxMargin.Value));
 
             return query;
         }
@@ -587,6 +643,17 @@ namespace RenewOne.Application.LogicService.Enquiry
             var query = ApplyCommonFilters(_repository.GetEnquiries(), request.Filter)
                 .Where(x => x.Status == "PolicyIssued" || x.PolicyDetails != null);
 
+            if (request.Filter.ConvertedFromDate.HasValue)
+            {
+                var from = request.Filter.ConvertedFromDate.Value.Date;
+                query = query.Where(x => (x.PolicyDetails != null ? x.PolicyDetails.CreatedAt : x.CreatedAt) >= from);
+            }
+            if (request.Filter.ConvertedToDate.HasValue)
+            {
+                var to = request.Filter.ConvertedToDate.Value.Date.AddDays(1);
+                query = query.Where(x => (x.PolicyDetails != null ? x.PolicyDetails.CreatedAt : x.CreatedAt) < to);
+            }
+
             var totalCount = await query.CountAsync(cancellationToken);
 
             var totalPremium = await query
@@ -954,33 +1021,32 @@ namespace RenewOne.Application.LogicService.Enquiry
 
             var groupByMonth = string.Equals(request.Filter.GroupBy, "month", StringComparison.OrdinalIgnoreCase);
 
-            var groupedQuery = groupByMonth
-                ? query.GroupBy(x => new { Year = x.CreatedAt.Year, Month = x.CreatedAt.Month })
-                    .Select(g => new
-                    {
-                        Period = $"{g.Key.Year}-{g.Key.Month:D2}",
-                        TotalEnquiries = g.Count(),
-                        PoliciesIssued = g.Count(x => x.Status == "PolicyIssued"),
-                        GrossPremium = g.SelectMany(x => x.EnquiryQuotes.Where(q => q.IsSelected).Select(q => (decimal?)q.Premium)).Sum() ?? 0m,
-                        NetProfit = g.Where(x => x.Status == "PolicyIssued")
-                            .SelectMany(x => x.EnquiryQuotes.Where(q => q.IsSelected).Select(q => (decimal?)q.AdminProfit)).Sum() ?? 0m
-                    })
-                : query.GroupBy(x => x.CreatedAt.Date)
-                    .Select(g => new
-                    {
-                        Period = g.Key.ToString("yyyy-MM-dd"),
-                        TotalEnquiries = g.Count(),
-                        PoliciesIssued = g.Count(x => x.Status == "PolicyIssued"),
-                        GrossPremium = g.SelectMany(x => x.EnquiryQuotes.Where(q => q.IsSelected).Select(q => (decimal?)q.Premium)).Sum() ?? 0m,
-                        NetProfit = g.Where(x => x.Status == "PolicyIssued")
-                            .SelectMany(x => x.EnquiryQuotes.Where(q => q.IsSelected).Select(q => (decimal?)q.AdminProfit)).Sum() ?? 0m
-                    });
+            var groupedQuery = query
+                .GroupBy(x => new
+                {
+                    Year = x.CreatedAt.Year,
+                    Month = x.CreatedAt.Month,
+                    Day = groupByMonth ? 1 : x.CreatedAt.Day
+                })
+                .Select(g => new
+                {
+                    g.Key.Year,
+                    g.Key.Month,
+                    g.Key.Day,
+                    TotalEnquiries = g.Count(),
+                    PoliciesIssued = g.Count(x => x.Status == "PolicyIssued"),
+                    GrossPremium = g.SelectMany(x => x.EnquiryQuotes.Where(q => q.IsSelected).Select(q => (decimal?)q.Premium)).Sum() ?? 0m,
+                    NetProfit = g.Where(x => x.Status == "PolicyIssued")
+                        .SelectMany(x => x.EnquiryQuotes.Where(q => q.IsSelected).Select(q => (decimal?)q.AdminProfit)).Sum() ?? 0m
+                });
 
             var totalCount = await groupedQuery.CountAsync(cancellationToken);
             var (skip, take) = GetPagination(request);
 
             var rawRows = await groupedQuery
-                .OrderByDescending(x => x.Period)
+                .OrderByDescending(x => x.Year)
+                .ThenByDescending(x => x.Month)
+                .ThenByDescending(x => x.Day)
                 .Skip(skip)
                 .Take(take)
                 .ToListAsync(cancellationToken);
@@ -993,7 +1059,9 @@ namespace RenewOne.Application.LogicService.Enquiry
             var rows = rawRows.Select(x => (IReadOnlyDictionary<string, object?>)
                 new Dictionary<string, object?>
                 {
-                    ["period"] = x.Period,
+                    ["period"] = groupByMonth
+                        ? $"{x.Year:D4}-{x.Month:D2}"
+                        : $"{x.Year:D4}-{x.Month:D2}-{x.Day:D2}",
                     ["totalEnquiries"] = x.TotalEnquiries,
                     ["totalPoliciesIssued"] = x.PoliciesIssued,
                     ["grossPremium"] = x.GrossPremium,

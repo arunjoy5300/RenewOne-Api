@@ -289,7 +289,9 @@ namespace RenewOne.Infrastructure.Services.Reports
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(1.5f, Unit.Centimetre);
                     page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+                    // Use QuestPDF's bundled default font so PDF export works on servers
+                    // that do not have Arial installed.
+                    page.DefaultTextStyle(x => x.FontSize(9));
 
                     // Header
                     page.Header().Column(col =>
@@ -329,20 +331,24 @@ namespace RenewOne.Infrastructure.Services.Reports
                     });
 
                     // Body: Data Table
+                    var reportColumns = reportResult.Columns.Count > 0
+                        ? reportResult.Columns
+                        : [new ReportResultColumn { Key = "message", Label = "Result" }];
+
                     page.Content().Table(table =>
                     {
-                        table.ColumnsDefinition(columns =>
+                        table.ColumnsDefinition(columnDefinition =>
                         {
-                            foreach (var _ in reportResult.Columns)
+                            foreach (var _ in reportColumns)
                             {
-                                columns.RelativeColumn();
+                                columnDefinition.RelativeColumn();
                             }
                         });
 
                         // Header
                         table.Header(header =>
                         {
-                            foreach (var col in reportResult.Columns)
+                            foreach (var col in reportColumns)
                             {
                                 header.Cell()
                                     .Background(Colors.Blue.Darken2)
@@ -361,7 +367,7 @@ namespace RenewOne.Infrastructure.Services.Reports
                             isEven = !isEven;
                             var rowBg = isEven ? Colors.Grey.Lighten5 : Colors.White;
 
-                            foreach (var col in reportResult.Columns)
+                            foreach (var col in reportColumns)
                             {
                                 var textVal = "-";
                                 if (item.TryGetValue(col.Key, out var val) && val != null)

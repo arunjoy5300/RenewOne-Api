@@ -8,5 +8,8 @@ namespace RenewOne.Application.Interfaces.LogicService.Class
     {
         Task<Result<IEnumerable<ViewAgentClass>>> GetAllAgentClasses();
         Task<Result<ViewAgentClass>> GetAgentClassById(Guid id);
+        Task<Result<ViewAgentClass>> CreateAgentClass(AgentClassRequest request);
+        Task<Result<ViewAgentClass>> UpdateAgentClass(Guid id, AgentClassRequest request);
+        Task<Result<bool>> ToggleAgentClassStatus(Guid id);
     }
 }
