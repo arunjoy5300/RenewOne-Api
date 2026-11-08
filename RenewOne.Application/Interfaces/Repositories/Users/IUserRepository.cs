@@ -11,5 +11,6 @@ namespace RenewOne.Application.Interfaces.Repositories.Users
         Task<IEnumerable<User>> GetAgentStaffByAccountAsync(Guid accountId);
         Task<User?> GetByIdAsync(Guid id);
         Task UpdateUserAsync(User user);
+        Task<string?> GetLastEmpIdAsync();
     }
 }

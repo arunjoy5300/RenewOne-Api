@@ -10,6 +10,7 @@
         public string Email { get; set; } = string.Empty;
         public DateTime JoinedDate { get; set; }
         public string? Address { get; set; }
+        public string? Pincode { get; set; }
         public bool IsActive { get; set; }
         public string? AgentClassName { get; set; }
     }

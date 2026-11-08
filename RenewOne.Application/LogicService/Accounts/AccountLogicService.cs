@@ -262,7 +262,6 @@ namespace RenewOne.Application.LogicService.Accounts
                 {
                     Id= Guid.NewGuid(),
                     AccountId = newAccount.Id,
-                    CreditLimit = 0,
                     AvailableBalance = 0,
                     IsActive = true
                 };
@@ -343,7 +342,7 @@ namespace RenewOne.Application.LogicService.Accounts
                     WalletBalance = x.Wallet != null
                         ? x.Wallet.Balance
                         : 0,
-                    LedgerBalance = x.Ledger != null
+                    ManualWalletBalance = x.Ledger != null
                         ? x.Ledger.AvailableBalance
                         : 0,
                     IsActive = x.IsActive
@@ -409,6 +408,7 @@ namespace RenewOne.Application.LogicService.Accounts
                     Email = x.Email,
                     JoinedDate = x.CreatedAt,
                     Address = x.Address,
+                    Pincode = x.Pincode,
                     IsActive = x.IsActive,
                     AgentClassName = x.AgentClass != null ? x.AgentClass.ClassName : null
                 })
@@ -422,6 +422,68 @@ namespace RenewOne.Application.LogicService.Accounts
             return Result<AgentAdminDetailsResponse>.Success(
                 agentDetails,
                 "Agent details fetched successfully.");
+        }
+        #endregion
+
+        #region UpdateAgentAdminDetailsAsync
+        public async Task<Result<AgentAdminDetailsResponse>> UpdateAgentAdminDetailsAsync(Guid accountId, UpdateAgentAdminDetailsRequest request, CancellationToken cancellationToken = default)
+        {
+            var agentName = request.AgentName?.Trim() ?? string.Empty;
+            var email = request.Email?.Trim() ?? string.Empty;
+            var phoneNumber = request.PhoneNumber?.Trim() ?? string.Empty;
+            var address = request.Address?.Trim();
+            var pincode = request.Pincode?.Trim();
+
+            if (agentName.Length is < 2 or > 100)
+                return Result<AgentAdminDetailsResponse>.Failure("Agent name must be between 2 and 100 characters.");
+            if (!System.Text.RegularExpressions.Regex.IsMatch(email, @"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$") || email.Length > 254)
+                return Result<AgentAdminDetailsResponse>.Failure("Enter a valid email address.");
+            if (!System.Text.RegularExpressions.Regex.IsMatch(phoneNumber, @"^[0-9]{10}$"))
+                return Result<AgentAdminDetailsResponse>.Failure("Phone number must contain exactly 10 digits.");
+            if (address?.Length > 500)
+                return Result<AgentAdminDetailsResponse>.Failure("Address must be 500 characters or fewer.");
+            if (!string.IsNullOrEmpty(pincode) && !System.Text.RegularExpressions.Regex.IsMatch(pincode, @"^[0-9]{6}$"))
+                return Result<AgentAdminDetailsResponse>.Failure("Pincode must be empty or exactly 6 digits.");
+
+            var account = await _accountRepository.GetByIdAsync(accountId);
+            if (account is null)
+                return Result<AgentAdminDetailsResponse>.NotFound("Agent account not found.");
+
+            var agentUser = await _userRepository.GetAllUsers()
+                .FirstOrDefaultAsync(x => x.AccountId == accountId && x.UserType == "Agent", cancellationToken);
+            if (agentUser is null)
+                return Result<AgentAdminDetailsResponse>.NotFound("Agent login was not found for this account.");
+
+            var normalizedEmail = email.ToLower();
+            var normalizedPhone = phoneNumber;
+            var emailInUseByAccount = await _accountRepository.GetQueryable().AnyAsync(
+                x => x.Id != accountId && x.Email.ToLower() == normalizedEmail, cancellationToken);
+            var emailInUseByUser = await _userRepository.GetAllUsers().AnyAsync(
+                x => x.Id != agentUser.Id && x.Email.ToLower() == normalizedEmail, cancellationToken);
+            if (emailInUseByAccount || emailInUseByUser)
+                return Result<AgentAdminDetailsResponse>.Conflict("Email address is already in use.");
+
+            var phoneInUseByAccount = await _accountRepository.GetQueryable().AnyAsync(
+                x => x.Id != accountId && x.ContactNumber == normalizedPhone, cancellationToken);
+            var phoneInUseByUser = await _userRepository.GetAllUsers().AnyAsync(
+                x => x.Id != agentUser.Id && x.PhoneNumber == normalizedPhone, cancellationToken);
+            if (phoneInUseByAccount || phoneInUseByUser)
+                return Result<AgentAdminDetailsResponse>.Conflict("Phone number is already in use.");
+
+            account.AgentName = agentName;
+            account.Email = email;
+            account.ContactNumber = phoneNumber;
+            account.Address = string.IsNullOrEmpty(address) ? null : address;
+            account.Pincode = string.IsNullOrEmpty(pincode) ? null : pincode;
+            account.UpdatedAt = DateTime.UtcNow;
+
+            agentUser.FullName = agentName;
+            agentUser.Email = email;
+            agentUser.PhoneNumber = phoneNumber;
+            agentUser.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.SaveChangesAsync();
+            return await GetAgentDetailsByAccountIdAsync(accountId, cancellationToken);
         }
         #endregion
 
@@ -510,21 +572,6 @@ namespace RenewOne.Application.LogicService.Accounts
             //    .Where(x => x.AccountId == accountId && x.Status == "Earned" && x.CreatedAt >= startOfCurrentMonth)
             //    .SumAsync(x => (decimal?)x.CommissionAmount, cancellationToken) ?? 0m;
 
-            // 4. Financial & Wallet Overview
-            //var wallet = await _walletRepository
-            //    .()
-            //    .AsNoTracking()
-            //    .Where(x => x.tena == accountId)
-            //    .Select(w => new
-            //    {
-            //        w.Balance,
-            //        w.CreditLimit,
-            //        w.OutstandingAmount,
-            //        w.LastRechargeAmount,
-            //        w.LastRechargeDate
-            //    })
-            //    .FirstOrDefaultAsync(cancellationToken);
-
             // 5. Recent Enquiries (Latest 5)
             var recentEnquiries = await _enquiryRepository
                 .GetQueryable()
@@ -578,14 +625,6 @@ namespace RenewOne.Application.LogicService.Accounts
                     //CompanyPayable = companyPayable,
                     //CommissionEarned = commissionEarned
                 },
-                //FinancialOverview = new FinancialOverviewDto
-                //{
-                //    WalletBalance = wallet?.Balance ?? 0m,
-                //    CreditLimit = wallet?.CreditLimit ?? 0m,
-                //    LastRechargeAmount = wallet?.LastRechargeAmount ?? 0m,
-                //    LastRechargeDate = wallet?.LastRechargeDate,
-                //    OutstandingAmount = wallet?.OutstandingAmount ?? 0m
-                //},
                 RecentEnquiries = recentEnquiries,
                 RecentPolicies = recentPolicies
             };

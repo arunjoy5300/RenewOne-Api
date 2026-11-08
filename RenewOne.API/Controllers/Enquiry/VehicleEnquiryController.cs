@@ -137,6 +137,7 @@ namespace RenewOne.API.Controllers.Enquiry
         }
 
         [HttpGet("{enquiryId:guid}/payment-verification")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> GetPaymentDetails(Guid enquiryId)
         {
             var result = await _enquiryService

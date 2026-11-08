@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using RenewOne.Application.DTOs.Request.PolicyPayment;
 using RenewOne.Application.Interfaces.LogicService.PolicyPayments;
 
@@ -15,6 +16,7 @@ namespace RenewOne.API.Controllers.PolicyPayment
             _policyPaymentLogicService = policyPaymentLogicService;
         }
         [HttpPost("approve")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> ApprovePolicyPayment([FromBody] ApprovePolicyPaymentRequest request)
         {
             var result = await _policyPaymentLogicService
@@ -24,6 +26,7 @@ namespace RenewOne.API.Controllers.PolicyPayment
         }
 
         [HttpPost("reject")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> RejectPolicyPayment([FromBody] RejectPolicyPaymentRequest request)
         {
             var result = await _policyPaymentLogicService
@@ -45,6 +48,7 @@ namespace RenewOne.API.Controllers.PolicyPayment
         }
 
         [HttpGet("{enquiryId:guid}/details")]
+        [Authorize(Roles = "SuperAdmin,Supervisor,AdminEmployee")]
         public async Task<IActionResult> GetPolicyPaymentDetails(
             Guid enquiryId,
             CancellationToken cancellationToken)

@@ -52,11 +52,16 @@ namespace RenewOne.Application.DTOs.Response.Enquiry
     public class QuoteDto
     {
         public Guid Id { get; set; }
+        public Guid? VendorId { get; set; }
+        public string? VendorName { get; set; }
         //public Guid InsuranceCompanyId { get; set; }
         public string InsuranceCompanyName { get; set; } = string.Empty;
         public decimal? IDV { get; set; }
         public decimal Premium { get; set; }
         public decimal AgentPoints { get; set; }
+        public bool AgentClassCommissionApplied { get; set; }
+        public decimal AgentClassCommissionPercentage { get; set; }
+        public decimal AgentClassCommissionDeduction { get; set; }
         public string? Remarks { get; set; }
         public DateTime? QuoteDate { get; set; }
         public bool? IsSelected { get; set; }

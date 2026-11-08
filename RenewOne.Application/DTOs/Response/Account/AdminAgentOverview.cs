@@ -31,10 +31,9 @@
     public class FinancialOverviewDto
     {
         public decimal WalletBalance { get; set; }
-        public decimal CreditLimit { get; set; }
+        public decimal ManualWalletBalance { get; set; }
         public decimal LastRechargeAmount { get; set; }
         public DateTime? LastRechargeDate { get; set; }
-        public decimal OutstandingAmount { get; set; }
     }
 
     public class RecentEnquiryDto

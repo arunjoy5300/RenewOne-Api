@@ -10,9 +10,9 @@
         public decimal Amount { get; set; }
         public string? Remarks { get; set; }
 
-        // Ledger
+        // Manual Wallet
         public string? AgentLedgerName { get; set; }
-        public decimal? AgentTotalLimit { get; set; }
+        public decimal? ManualWalletBalance { get; set; }
         public decimal? CurrentBalance { get; set; }
         public string? ReferenceNumber { get; set; }
         public string? TransactionId { get; set; }

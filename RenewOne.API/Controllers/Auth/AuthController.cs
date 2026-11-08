@@ -22,9 +22,16 @@ namespace RenewOne.API.Controllers.Auth
         }
         [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
         [HttpPost("reset-agent-password/{accountId}")]
-        public async Task<IActionResult> ResetAgentPassword([FromRoute] Guid accountId)
+        public async Task<IActionResult> ResetAgentPassword([FromRoute] Guid accountId, CancellationToken cancellationToken)
         {
-            var result = await _authLogicService.ResetAgentPasswordWithGeneratedAsync(accountId);
+            var result = await _authLogicService.ResetAgentPasswordWithGeneratedAsync(accountId, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        [Authorize(Roles = "SuperAdmin,AdminEmployee,Supervisor")]
+        [HttpPost("reset-staff-password/{accountId:guid}/{staffUserId:guid}")]
+        public async Task<IActionResult> ResetStaffPassword([FromRoute] Guid accountId, [FromRoute] Guid staffUserId, CancellationToken cancellationToken)
+        {
+            var result = await _authLogicService.ResetStaffPasswordWithGeneratedAsync(accountId, staffUserId, cancellationToken);
             return StatusCode(result.StatusCode, result);
         }
     }

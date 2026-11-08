@@ -2,7 +2,8 @@
 {
     public class EmployeeListResponse
     {
-        public Guid EmployeeId { get; set; }
+        public Guid Id { get; set; }
+        public string EmployeeId { get; set; }
         public string EmployeeName { get; set; }
         public string Email { get; set; }
         public string PhoneNumber { get; set; }

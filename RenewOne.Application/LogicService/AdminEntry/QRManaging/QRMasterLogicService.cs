@@ -312,35 +312,25 @@ namespace RenewOne.Application.LogicService.AdminEntry.QRManaging
         #endregion
 
         #region Toggle QR Master Status
-        public async Task<Result<string>> ChangeStatusAsync(Guid id, bool isActive, CancellationToken cancellationToken = default)
+        public async Task<Result<string>> ChangeStatusAsync(Guid id, CancellationToken cancellationToken = default)
         {
             try
             {
-                _logger.LogInformation(
-                    "Changing QR Master status. Id: {Id}, IsActive: {IsActive}",
-                    id,
-                    isActive);
+                _logger.LogInformation("Changing QR Master status. Id: {Id}", id);
 
                 var qrMaster = await _qrMasterRepository.GetByIdAsync(id);
 
                 if (qrMaster == null)
                 {
-                    _logger.LogWarning(
-                        "QR Master not found. Id: {Id}",
-                        id);
-
+                    _logger.LogWarning("QR Master not found. Id: {Id}", id);
                     return Result<string>.NotFound("QR Master not found.");
                 }
 
-                if (qrMaster.IsActive == isActive)
-                {
-                    return Result<string>.Failure(
-                        $"QR Master is already {(isActive ? "Active" : "Inactive")}.");
-                }
+                bool newStatus = !qrMaster.IsActive;
 
                 await _unitOfWork.BeginTransactionAsync();
 
-                qrMaster.IsActive = isActive;
+                qrMaster.IsActive = newStatus;
                 qrMaster.UpdatedAt = DateTime.UtcNow;
 
                 _qrMasterRepository.Update(qrMaster);
@@ -349,12 +339,13 @@ namespace RenewOne.Application.LogicService.AdminEntry.QRManaging
                 await _unitOfWork.CommitTransactionAsync();
 
                 _logger.LogInformation(
-                    "QR Master status updated successfully. Id: {Id}",
-                    id);
+                    "QR Master status updated successfully. Id: {Id}, NewStatus: {Status}",
+                    id,
+                    newStatus);
 
                 return Result<string>.Success(
                     id.ToString(),
-                    $"QR Master {(isActive ? "activated" : "deactivated")} successfully.");
+                    $"QR Master {(newStatus ? "activated" : "deactivated")} successfully.");
             }
             catch (Exception ex)
             {

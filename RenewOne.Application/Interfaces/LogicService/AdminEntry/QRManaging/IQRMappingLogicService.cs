@@ -26,7 +26,6 @@ namespace RenewOne.Application.Interfaces.LogicService.AdminEntry.QRManaging
 
         Task<Result<string>> ChangeStatusAsync(
             Guid id,
-            bool isActive,
             CancellationToken cancellationToken = default);
     }
 }

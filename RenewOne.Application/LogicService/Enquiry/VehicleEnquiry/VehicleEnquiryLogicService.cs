@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RenewOne.Application.Common.Helper;
@@ -47,6 +47,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         private readonly IPolicyPaymentRepository _policyPaymentRepository;
         private readonly INotificationService _notificationService;
         private readonly ILedgerTransactionRepository _ledgerTransactionRepository;
+        private readonly IBankAccountRepository _bankAccountRepository;
         private readonly IBankTransactionRepository _bankTransactionRepository;
         #endregion
 
@@ -67,7 +68,8 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             IPolicyPaymentRepository policyPaymentRepository,
             INotificationService notificationService,
             ILedgerTransactionRepository ledgerTransactionRepository,
-            IBankTransactionRepository bankTransactionRepository)
+            IBankTransactionRepository bankTransactionRepository,
+            IBankAccountRepository bankAccountRepository)
         {
             _vehicleEnquiryRepository = vehicleEnquiryRepository;
             _rcApiService = rcApiService;
@@ -85,6 +87,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             _notificationService = notificationService;
             _ledgerTransactionRepository = ledgerTransactionRepository;
             _bankTransactionRepository = bankTransactionRepository;
+            _bankAccountRepository = bankAccountRepository;
         }
         #endregion
 
@@ -345,213 +348,129 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
         #region SubmitVehicleEnquiryAsync
         public async Task<Result<EnquirySubmitResponse>> SubmitVehicleEnquiryAsync(
-        SubmitVehicleEnquiry request,
-        Guid accountId,
-        CancellationToken cancellationToken = default)
+    SubmitVehicleEnquiry request,
+    Guid accountId,
+    CancellationToken cancellationToken = default)
         {
-            bool hasInstantQuotes = false;
-
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
-                _logger.LogInformation(
-                    "Submitting enquiry. EnquiryId: {EnquiryId}",
-                    request.EnquiryId);
+                _logger.LogInformation("Submitting enquiry. EnquiryId: {EnquiryId}", request.EnquiryId);
 
-                var enquiry = _enquiryRepository
+                var enquiry = await _enquiryRepository
                     .GetEnquiries()
-                    .FirstOrDefault(x => x.Id == request.EnquiryId);
+                    .FirstOrDefaultAsync(x => x.Id == request.EnquiryId, cancellationToken);
 
                 if (enquiry == null)
                 {
                     await _unitOfWork.RollbackTransactionAsync();
-
-                    _logger.LogWarning(
-                        "Enquiry not found. EnquiryId: {EnquiryId}",
-                        request.EnquiryId);
-
-                    return Result<EnquirySubmitResponse>.NotFound(
-                        "Enquiry not found");
+                    return Result<EnquirySubmitResponse>.NotFound("Enquiry not found");
                 }
 
                 if (enquiry.Status != EnquiryStatus.Created.ToString())
                 {
                     await _unitOfWork.RollbackTransactionAsync();
-
-                    _logger.LogWarning(
-                        "Invalid enquiry status. EnquiryId: {EnquiryId}, Status: {Status}",
-                        enquiry.Id,
-                        enquiry.Status);
-
-                    return Result<EnquirySubmitResponse>.Failure(
-                        "Only created enquiries can be submitted.");
+                    return Result<EnquirySubmitResponse>.Failure("Only created enquiries can be submitted.");
                 }
 
-                if (enquiry.VehicleEnquiryDetails?.MIPolicyType ==
-                    PolicyType.ThirdParty.ToString())
+                var policyType = enquiry.VehicleEnquiryDetails?.MIPolicyType;
+                bool hasInstantQuotes = false;
+
+                // 1. THIRD PARTY FLOW
+                if (policyType == PolicyType.ThirdParty.ToString())
                 {
                     var account = await _accountRepository.GetByIdAsync(accountId);
-
                     if (account == null)
                     {
                         await _unitOfWork.RollbackTransactionAsync();
-
-                        return Result<EnquirySubmitResponse>.NotFound(
-                            "Account not found");
+                        return Result<EnquirySubmitResponse>.NotFound("Account not found");
                     }
 
-                    if (!decimal.TryParse(
-                            enquiry.VehicleEnquiryDetails.VehicleDetails?.CubicCapacity,
-                            out var ccValue))
+                    if (!decimal.TryParse(enquiry.VehicleEnquiryDetails?.VehicleDetails?.CubicCapacity, out var ccValue))
                     {
                         await _unitOfWork.RollbackTransactionAsync();
-
-                        return Result<EnquirySubmitResponse>.Failure(
-                            "Invalid Cubic Capacity");
+                        return Result<EnquirySubmitResponse>.Failure("Invalid Cubic Capacity");
                     }
 
-                    var pricingMasters =
-                        (await _pricingMasterRepository.GetTPPricing(
-                            enquiry.VehicleEnquiryDetails.VehicleTypeId,
-                            account.AgentClassId,
-                            (int)ccValue))
-                        .ToList();
+                    var pricingMasters = (await _pricingMasterRepository.GetTPPricing(enquiry.VehicleEnquiryDetails.VehicleTypeId, account.AgentClassId, (int)ccValue, enquiry.VehicleEnquiryDetails?.VehicleDetails?.FuelType)).ToList();
 
                     if (pricingMasters.Count > 0)
                     {
                         foreach (var pricing in pricingMasters)
                         {
-                            await _enquiryQuoteRepository.AddEnquiryQuoteAsync(
-                                new EnquiryQuote
-                                {
-                                    Id = Guid.NewGuid(),
-                                    EnquiryId = enquiry.Id,
-                                    InsuranceCompanyId = pricing.InsuranceCompanyId,
-                                    Premium = pricing.TotalPremium,
-                                    CompanyPayable = pricing.CompanyPayable,
-                                    AgentPoints = pricing.AgentPoints,
-                                    AdminProfit = pricing.AdminProfit,
-                                    CreatedAt = DateTime.UtcNow,
-                                    UpdatedAt = DateTime.UtcNow
-                                });
+                            await _enquiryQuoteRepository.AddEnquiryQuoteAsync(new EnquiryQuote
+                            {
+                                Id = Guid.NewGuid(),
+                                EnquiryId = enquiry.Id,
+                                InsuranceCompanyId = pricing.InsuranceCompanyId,
+                                Premium = pricing.TotalPremium,
+                                CompanyPayable = pricing.CompanyPayable,
+                                AgentPoints = pricing.AgentPoints,
+                                AdminProfit = pricing.AdminProfit,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            });
                         }
 
                         hasInstantQuotes = true;
-
                         enquiry.Status = EnquiryStatus.Quoted.ToString();
-                        enquiry.CurrentStep = 4;
-
-                        _logger.LogInformation(
-                            "Instant quotes generated. EnquiryId: {EnquiryId}, QuoteCount: {QuoteCount}",
-                            enquiry.Id,
-                            pricingMasters.Count);
+                        enquiry.CurrentStep = 3;
                     }
-                    
                     else
                     {
                         hasInstantQuotes = false;
-
-                        _logger.LogWarning(
-                            "No pricing available for enquiry. EnquiryId: {EnquiryId}, VehicleTypeId: {VehicleTypeId}, AgentClassId: {AgentClassId}, CC: {CC}",
-                            enquiry.Id,
-                            enquiry.VehicleEnquiryDetails.VehicleTypeId,
-                            account.AgentClassId,
-                            ccValue);
-
                         enquiry.Status = EnquiryStatus.Submitted.ToString();
-                        enquiry.CurrentStep = 2;
+                        enquiry.CurrentStep = 3;
                     }
-
-                    enquiry.UpdatedAt = DateTime.UtcNow;
-
-                    _enquiryRepository.Update(enquiry);
-
-                    await _unitOfWork.CommitTransactionAsync();
-
-                    // Notify admins/supervisors in both cases
-                    await _notificationService.SendToRolesAsync(
-                        new NotificationMessage
-                        {
-                            Event = "EnquirySubmitted",
-                            Title = "Enquiry Submitted",
-                            Message =
-                                $"A new enquiry has been submitted. EnquiryId: {enquiry.Id}"
-                        },
-                        "SuperAdmin",
-                        "AdminEmployee",
-                        "Supervisor");
-
-                    _logger.LogInformation(
-                        "Enquiry submitted successfully. EnquiryId: {EnquiryId}, Status: {Status}, HasInstantQuotes: {HasInstantQuotes}",
-                        enquiry.Id,
-                        enquiry.Status,
-                        hasInstantQuotes);
-
-                    return Result<EnquirySubmitResponse>.Success(
-                        new EnquirySubmitResponse
-                        {
-                            EnquiryId = enquiry.Id,
-                            Status = enquiry.Status,
-                            RedirectToQuotes = hasInstantQuotes
-                        },
-                        hasInstantQuotes
-                            ? "Quotes generated successfully."
-                            : "Enquiry submitted successfully.");
                 }
-
-                if (enquiry.VehicleEnquiryDetails?.MIPolicyType ==
-                        PolicyType.OwnDamaged.ToString() ||
-                    enquiry.VehicleEnquiryDetails?.MIPolicyType ==
-                        PolicyType.Comprehensive.ToString())
+                // 2. COMPREHENSIVE / OWN DAMAGE FLOW
+                else if (policyType == PolicyType.OwnDamage.ToString() || policyType == PolicyType.Comprehensive.ToString())
                 {
-                    var validation =
-                        await ValidateMandatoryDocumentsAsync(
-                            request.EnquiryId);
-
+                    var validation = await ValidateMandatoryDocumentsAsync(request.EnquiryId);
                     if (!validation.IsSuccess)
                     {
                         await _unitOfWork.RollbackTransactionAsync();
-
-                        return Result<EnquirySubmitResponse>.Failure(
-                            validation.Message,
-                            validation.StatusCode);
+                        return Result<EnquirySubmitResponse>.Failure(validation.Message, validation.StatusCode);
                     }
+
+                    enquiry.Status = EnquiryStatus.Submitted.ToString();
+                    enquiry.CurrentStep = 3;
+                }
+                else
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return Result<EnquirySubmitResponse>.Failure("Invalid policy type.");
                 }
 
-                enquiry.Status = EnquiryStatus.Submitted.ToString();
                 enquiry.UpdatedAt = DateTime.UtcNow;
-                enquiry.CurrentStep = 4;
-
                 _enquiryRepository.Update(enquiry);
 
                 await _unitOfWork.CommitTransactionAsync();
 
-                _logger.LogInformation(
-                    "Enquiry submitted successfully. EnquiryId: {EnquiryId}",
-                    enquiry.Id);
+                await _notificationService.SendToRolesAsync(
+                    new NotificationMessage
+                    {
+                        Event = "EnquirySubmitted",
+                        Title = "Enquiry Submitted",
+                        Message = $"A new enquiry has been submitted. EnquiryId: {enquiry.Id}"
+                    },
+                    "SuperAdmin", "AdminEmployee", "Supervisor");
 
                 return Result<EnquirySubmitResponse>.Success(
                     new EnquirySubmitResponse
                     {
                         EnquiryId = enquiry.Id,
                         Status = enquiry.Status,
-                        RedirectToQuotes = false
+                        RedirectToQuotes = hasInstantQuotes
                     },
-                    "Enquiry submitted successfully");
+                    hasInstantQuotes ? "Quotes generated successfully." : "Enquiry submitted successfully.");
             }
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackTransactionAsync();
-
-                _logger.LogError(
-                    ex,
-                    "Error submitting enquiry. EnquiryId: {EnquiryId}",
-                    request.EnquiryId);
-
-                return Result<EnquirySubmitResponse>.Failure(
-                    "Error submitting enquiry.",
-                    500);
+                _logger.LogError(ex, "Error submitting enquiry. EnquiryId: {EnquiryId}", request.EnquiryId);
+                return Result<EnquirySubmitResponse>.Failure("Error submitting enquiry.", 500);
             }
         }
 
@@ -560,8 +479,12 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         #region SubmitPolicyRequest
         public async Task<Result<string>> SubmitPolicyRequestAsync(SubmitPolicyRequest request, CancellationToken cancellationToken = default)
         {
-            var role = _currentUser.IpAddress;
-            _logger.LogInformation(role);
+            _logger.LogInformation(
+                "User {UserId} with role {Role} from IP {IpAddress} initiated policy submission.",
+                _currentUser.UserId,
+                _currentUser.Role,
+                _currentUser.IpAddress);
+
             try
             {
                 Guid accountId;
@@ -572,7 +495,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     if (!request.AccountId.HasValue)
                     {
-                        return Result<string>.Failure("AccountId is required.", 400);
+                        return Result<string>.Failure("AccountId is required for admin submission.", 400);
                     }
 
                     accountId = request.AccountId.Value;
@@ -591,8 +514,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 var enquiryQuote = await _enquiryQuoteRepository
                     .GetEnquiryQuoteQuery()
                     .FirstOrDefaultAsync(
-                        x => x.Id == request.QuoteId &&
-                            x.EnquiryId == request.EnquiryId,
+                        x => x.Id == request.QuoteId && x.EnquiryId == request.EnquiryId,
                         cancellationToken);
 
                 if (enquiryQuote == null)
@@ -606,20 +528,15 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 var enquiry = await _enquiryRepository
                     .GetEnquiryQueryable()
-                    .FirstOrDefaultAsync(
-                        x => x.Id == enquiryQuote.EnquiryId,
-                        cancellationToken);
+                    .FirstOrDefaultAsync(x => x.Id == enquiryQuote.EnquiryId, cancellationToken);
 
-                if(enquiry == null)
+                if (enquiry == null)
                 {
-                    _logger.LogWarning(
-                        "Enquiry not found. EnquiryId: {EnquiryId}",
-                        request.EnquiryId);
+                    _logger.LogWarning("Enquiry not found. EnquiryId: {EnquiryId}", request.EnquiryId);
                     return Result<string>.NotFound("Enquiry not found.");
                 }
 
-                var documentValidation =
-                    await ValidateMandatoryDocumentsAsync(enquiry.Id);
+                var documentValidation = await ValidateMandatoryDocumentsAsync(enquiry.Id);
                 if (!documentValidation.IsSuccess)
                 {
                     _logger.LogWarning(
@@ -627,31 +544,38 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                         enquiry.Id,
                         documentValidation.Message);
 
-                    return Result<string>.Failure(
-                        documentValidation.Message,
-                        documentValidation.StatusCode);
+                    return Result<string>.Failure(documentValidation.Message, documentValidation.StatusCode);
                 }
 
-                // Duplicate Check
+                await _unitOfWork.BeginTransactionAsync();
                 var hasActivePayment = await _policyPaymentRepository
                     .GetPolicyPaymentQueryable()
                     .AnyAsync(x =>
                         x.EnquiryId == request.EnquiryId &&
                         x.Status != "Rejected" &&
-                        x.Status !=  "Cancelled");
+                        x.Status != "Cancelled",
+                        cancellationToken);
 
                 if (hasActivePayment)
                 {
+                    await _unitOfWork.RollbackTransactionAsync();
                     _logger.LogWarning(
                         "Duplicate policy payment submission. EnquiryId: {EnquiryId}, QuoteId: {QuoteId}",
                         request.EnquiryId,
                         request.QuoteId);
 
-                    return Result<string>.Failure(
-                        "A payment request has already been submitted for this quote.");
+                    return Result<string>.Failure("A payment request has already been submitted for this quote.");
                 }
 
                 Ledger? ledger = null;
+                BankAccount? bankAccount = null;
+                decimal netPayableAmount = enquiryQuote.Premium - enquiryQuote.AgentPoints;
+
+                if (enquiryQuote.Premium <= 0m || netPayableAmount <= 0m)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    return Result<string>.Failure("Policy premium and net payable amount must both be positive.", 400);
+                }
 
                 if (request.UseLedger)
                 {
@@ -659,20 +583,19 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                     if (ledger == null)
                     {
-                        _logger.LogWarning(
-                            "Ledger not found. AccountId: {AccountId}",
-                            accountId);
-
+                        await _unitOfWork.RollbackTransactionAsync();
+                        _logger.LogWarning("Ledger not found. AccountId: {AccountId}", accountId);
                         return Result<string>.NotFound("No ledger account found");
                     }
 
-                    if (ledger.AvailableBalance < enquiryQuote.Premium)
+                    if (ledger.AvailableBalance < netPayableAmount)
                     {
+                        await _unitOfWork.RollbackTransactionAsync();
                         _logger.LogWarning(
-                            "Insufficient ledger balance. AccountId: {AccountId}, Balance: {Balance}, Premium: {Premium}",
+                            "Insufficient ledger balance. AccountId: {AccountId}, Balance: {Balance}, Required: {Required}",
                             accountId,
                             ledger.AvailableBalance,
-                            enquiryQuote.Premium);
+                            netPayableAmount);
 
                         return Result<string>.Failure("Insufficient ledger balance");
                     }
@@ -681,22 +604,32 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 {
                     if (string.IsNullOrWhiteSpace(request.TransactionId))
                     {
-                        return Result<string>.Failure("Transaction Id is requied");
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.Failure("Transaction Id is required", 400);
+                    }
+
+                    if (!request.BankAccountId.HasValue)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.Failure("Bank account is required for bank transfer.", 400);
+                    }
+
+                    bankAccount = await _bankAccountRepository.GetQueryable()
+                        .FirstOrDefaultAsync(
+                            x => x.Id == request.BankAccountId.Value && x.IsActive,
+                            cancellationToken);
+                    if (bankAccount == null)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync();
+                        return Result<string>.NotFound("Active bank account not found.");
                     }
                 }
-
-                _logger.LogInformation(
-                    "Creating policy payment. EnquiryId: {EnquiryId}",
-                    enquiry.Id);
-
-                // Start Transaction
-                await _unitOfWork.BeginTransactionAsync();
 
                 if (request.UseLedger && ledger != null)
                 {
                     var balanceBefore = ledger.AvailableBalance;
 
-                    ledger.AvailableBalance -= enquiryQuote.Premium - enquiryQuote.AgentPoints;
+                    ledger.AvailableBalance -= netPayableAmount;
                     ledger.UpdatedAt = DateTime.UtcNow;
 
                     await _ledgerRepository.Update(ledger);
@@ -705,13 +638,13 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     {
                         Id = Guid.NewGuid(),
                         LedgerId = ledger.Id,
-                        TransactionType = "Debit",
-                        Amount = enquiryQuote.Premium,
+                        TransactionType = "Consumption",
+                        Amount = netPayableAmount,
                         BalanceBefore = balanceBefore,
                         BalanceAfter = ledger.AvailableBalance,
                         EnquiryId = enquiry.Id,
                         ReferenceNo = $"PP{Random.Shared.Next(10, 100):D2}",
-                        Remarks = $"Policy payment for enquiry {enquiry.Id}",
+                        Remarks = $"Policy payment for enquiry {enquiry.Id} (Net premium after points)",
                         CreatedByUserId = _currentUser.UserId,
                         CreatedByIpAddress = _currentUser.IpAddress,
                         CreatedAt = DateTime.UtcNow,
@@ -721,7 +654,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     await _ledgerTransactionRepository.AddLedgerTransaction(ledgerTransaction);
                 }
 
-                // Unselect previous quotes
                 var quotes = await _enquiryQuoteRepository
                     .GetEnquiryQuoteQuery()
                     .Where(x => x.EnquiryId == enquiry.Id)
@@ -734,28 +666,26 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     quote.SelectedAt = null;
                 }
 
-                // Select current quote
                 enquiryQuote.IsSelected = true;
                 enquiryQuote.SelectedAt = DateTime.UtcNow;
                 enquiryQuote.SelectedByUserId = _currentUser.UserId;
                 enquiryQuote.UpdatedAt = DateTime.UtcNow;
 
-                // Create Policy Payment
+                bool isAdminRole = _currentUser.Role == "SuperAdmin" ||
+                                   _currentUser.Role == "AdminEmployee" ||
+                                   _currentUser.Role == "Supervisor";
+
                 var policyPayment = new PolicyPayment
                 {
                     Id = Guid.NewGuid(),
                     EnquiryId = enquiry.Id,
                     EnquiryQuoteId = enquiryQuote.Id,
                     AccountId = accountId,
-                    Amount = enquiryQuote.Premium,
-                    PaymentMode = request.UseLedger
-                        ? "Ledger"
-                        : "BankTransfer",
+                    Amount = netPayableAmount, // Changed from enquiryQuote.Premium to netPayableAmount
+                    PaymentMode = request.UseLedger ? "ManualWallet" : "BankTransfer",
                     TransactionId = request.TransactionId,
                     ReferenceNumber = $"PP{Random.Shared.Next(10, 100):D2}",
-                    Status = _currentUser.Role == "SuperAdmin" || _currentUser.Role == "AdminEmployee" || _currentUser.Role == "Supervisor"
-                        ? "Approved"
-                        : "Pending",
+                    Status = isAdminRole ? "Approved" : "Pending",
                     Remarks = request.Remarks,
                     BankAccountId = request.BankAccountId,
                     SubmittedByUserId = _currentUser.UserId,
@@ -766,63 +696,46 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
 
                 await _policyPaymentRepository.AddAsync(policyPayment);
 
-                if (!request.UseLedger)
+                if (!request.UseLedger && isAdminRole && bankAccount != null)
                 {
-                    if (!request.BankAccountId.HasValue)
-                    {
-                        await _unitOfWork.RollbackTransactionAsync();
-
-                        return Result<string>.Failure(
-                            "Bank account is required for bank transfer.",
-                            400);
-                    }
-
                     var bankTransaction = new BankTransaction
                     {
                         Id = Guid.NewGuid(),
                         BankAccountId = request.BankAccountId.Value,
-
                         TransactionType = "Credit",
-                        Amount = enquiryQuote.Premium,
-
+                        Amount = netPayableAmount, // Changed from enquiryQuote.Premium to netPayableAmount
                         Category = "PolicyPayment",
                         Description = $"Policy payment received for enquiry {enquiry.Id}",
-
                         PolicyPaymentId = policyPayment.Id,
                         VendorId = null,
                         SalaryId = null,
                         UserId = _currentUser.UserId,
-
                         TransactionDate = DateTime.UtcNow,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
 
                     await _bankTransactionRepository.AddAsync(bankTransaction, cancellationToken);
+
+                    bankAccount.CurrentBalance += netPayableAmount; // Changed from enquiryQuote.Premium to netPayableAmount
+                    bankAccount.UpdatedAt = DateTime.UtcNow;
+                    _bankAccountRepository.Update(bankAccount);
                 }
 
-                _logger.LogInformation(
-                    "Policy payment created successfully. PolicyPaymentId: {PolicyPaymentId}",
-                    policyPayment.Id);
-
-                if (_currentUser.Role == "SuperAdmin" ||
-                    _currentUser.Role == "AdminEmployee" ||
-                    _currentUser.Role == "Supervisor")
+                if (isAdminRole)
                 {
-
-                    enquiry.Status =
-                    EnquiryStatus.PolicyInProgress.ToString();
+                    enquiry.Status = EnquiryStatus.PolicyInProgress.ToString();
                 }
                 else
                 {
-                    enquiry.Status =
-                    EnquiryStatus.PaymentVerificationPending.ToString();
+                    enquiry.Status = EnquiryStatus.PaymentVerificationPending.ToString();
                     enquiry.AssignedEmployeeId = null;
                 }
 
                 enquiry.UpdatedAt = DateTime.UtcNow;
                 enquiry.SelectedQuoteId = enquiryQuote.Id;
-                enquiry.CurrentStep = 6;
+
+                enquiry.CurrentStep = 5;
 
                 _enquiryRepository.Update(enquiry);
 
@@ -847,7 +760,6 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 return Result<string>.Success(
                     policyPayment.Id.ToString(),
                     "Policy submitted successfully.");
-
             }
             catch (Exception ex)
             {
@@ -859,9 +771,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     request.EnquiryId,
                     request.QuoteId);
 
-                return Result<string>.Failure(
-                    "Error submitting policy request.",
-                    500);
+                return Result<string>.Failure("Error submitting policy request.", 500);
             }
         }
         #endregion
@@ -906,12 +816,12 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 //        x.DocType == DocumentType.Identity.ToString() &&
                 //        x.DocSide == DocumentSide.Back.ToString())
                 //},
-                new
-                {
-                    Name = "Previous Policy",
-                    Exists = documents.Any(x =>
-                        x.DocType == DocumentType.PreviousPolicy.ToString())
-                }
+                //new
+                //{
+                //    Name = "Previous Policy",
+                //    Exists = documents.Any(x =>
+                //        x.DocType == DocumentType.PreviousPolicy.ToString())
+                //}
             };
 
             var missingDocuments = requiredDocuments
@@ -937,6 +847,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
         {
             var payment = await _policyPaymentRepository
                 .GetQueryable()
+                .OrderByDescending(x => x.SubmittedAt)
                 .FirstOrDefaultAsync(x => x.EnquiryId == enquiryId);
 
             if(payment == null)
@@ -949,7 +860,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             {
                 CustomerName = payment.Enquiry.CustomerName,
                 CustomerNumber = payment.Enquiry.CustomerNumber,
-                VehicleNumber = payment.Enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber,
+                VehicleNumber = payment.Enquiry.VehicleEnquiryDetails?.VehicleDetails?.VehicleNumber ?? string.Empty,
                 PaymentMode = payment.PaymentMode,
                 PaymentStatus = payment.Status,
                 Premium = payment.Amount,
@@ -957,7 +868,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 EnquiryId = payment.EnquiryId,
                 PolicyPaymentId = payment.Id,
                 SubmittedAt = payment.SubmittedAt,
-                SubmittedBy = payment.SubmittedByUser.FullName,
+                SubmittedBy = payment.SubmittedByUser?.FullName ?? string.Empty,
                 TransactionId = payment.TransactionId
             };
 
@@ -1084,20 +995,43 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             try
             {
                 var enquiry = await _enquiryRepository.GetEnquiryQueryable()
+                    .Include(x => x.Tenant)
+                        .ThenInclude(x => x!.AgentClass)
                     .FirstOrDefaultAsync(x => x.Id == request.EnquiryId, cancellationToken);
                 if (enquiry == null)
                 {
                     return Result<bool>.Failure("Enquiry not found.", 404);
                 }
+                if (request.AgentClassCommissionApplicable && enquiry.Tenant?.AgentClass == null)
+                {
+                    return Result<bool>.Failure("The enquiry's agent class could not be found for commission calculation.", 400);
+                }
+
+                var commissionPercentage = request.AgentClassCommissionApplicable
+                    ? enquiry.Tenant!.AgentClass!.CommSharePercentage
+                    : 0m;
+                if (commissionPercentage is < 0m or > 100m)
+                {
+                    return Result<bool>.Failure("Agent class commission percentage must be between 0 and 100.", 400);
+                }
+
+                var commissionDeduction = Math.Round(
+                    request.AgentPoints * commissionPercentage / 100m,
+                    2,
+                    MidpointRounding.AwayFromZero);
                 var quote = new EnquiryQuote
                 {
                     Id = Guid.NewGuid(),
                     EnquiryId = request.EnquiryId,
                     InsuranceCompanyId = request.InsuranceCompanyId,
+                    VendorId = request.VendorId,
                     Premium = request.Premium,
                     CompanyPayable = request.CompanyPayable,
-                    AgentPoints = request.AgentPoints,
-                    AdminProfit = request.AdminProfit,
+                    AgentPoints = request.AgentPoints - commissionDeduction,
+                    AdminProfit = request.AdminProfit + commissionDeduction,
+                    AgentClassCommissionApplied = request.AgentClassCommissionApplicable,
+                    AgentClassCommissionPercentage = commissionPercentage,
+                    AgentClassCommissionDeduction = commissionDeduction,
                     Remarks = request.Remarks,
                     Idv = request.Idv,
                     IsManualQuote = true,
@@ -1175,10 +1109,15 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                     .Select(x => new QuoteDto
                     {
                         Id = x.Id,
+                        VendorId = x.VendorId,
+                        VendorName = x.Vendor != null ? x.Vendor.Name : null,
                         InsuranceCompanyName = x.InsuranceCompany.CompanyName,
                         IDV = x.Idv,
                         Premium = x.Premium,
                         AgentPoints = x.AgentPoints,
+                        AgentClassCommissionApplied = x.AgentClassCommissionApplied,
+                        AgentClassCommissionPercentage = x.AgentClassCommissionPercentage,
+                        AgentClassCommissionDeduction = x.AgentClassCommissionDeduction,
                         Remarks = x.Remarks,
                         QuoteDate = x.CreatedAt,
                         IsSelected = x.IsSelected
@@ -1250,7 +1189,7 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
                 enquiry.Status = EnquiryStatus.Quoted.ToString();
                 enquiry.UpdatedAt = DateTime.UtcNow;
                 enquiry.SelectedQuoteId = quote.Id;
-                enquiry.CurrentStep = 5;
+                enquiry.CurrentStep = 4;
                 _enquiryRepository.Update(enquiry);
                 await _enquiryQuoteRepository.SaveChangesAsync();
                 return Result<bool>.Success(true, "Vehicle quote submitted successfully.");
@@ -1267,91 +1206,5 @@ namespace RenewOne.Application.LogicService.Enquiry.VehicleEnquiry
             }
         }
         #endregion
-
-        //public async Task<Result<VehicleRcResponse>> GetVehicleAsync(string regnNumber,CancellationToken cancellationToken = default)
-        //{
-        //    regnNumber = NormalizeRegistrationNumber(regnNumber);
-
-        //    // 1. Check DB
-        //    var existingVehicle = await _vehicleEnquiryRepository.GetVehicleDetailsQuery()
-        //        .FirstOrDefaultAsync(x => x.VehicleNumber == regnNumber, cancellationToken);
-
-        //    if (existingVehicle != null)
-        //    {
-
-        //        return Result<VehicleRcResponse>.Success(
-        //            );
-        //    }
-
-        //    // 2. Not found → call external RC API
-        //    var rcResponse =
-        //        await _rcApiClient.GetVehicleDetailsAsync(
-        //            regnNumber,
-        //            cancellationToken);
-
-        //    if (rcResponse == null)
-        //    {
-        //        return Result<VehicleRcResponse>.NotFound(
-        //            "Vehicle details not found.");
-        //    }
-
-        //    // 3. Save API response to DB
-        //    var vehicle = MapToEntity(rcResponse);
-
-        //    await _vehicleRcRepository.AddAsync(vehicle);
-        //    await _vehicleRcRepository.SaveChangesAsync();
-
-        //    // 4. Return response
-        //    return Result<VehicleRcResponse>.Success(rcResponse);
-        //}
-
-        //private static string NormalizeRegistrationNumber(string regnNumber)
-        //{
-        //    return new string(
-        //        regnNumber
-        //            .Where(char.IsLetterOrDigit)
-        //            .ToArray())
-        //        .ToUpperInvariant();
-        //}
-
-        //private static VehicleRcResponse MapToEntity(VehicleRcResponse x)
-        //{
-        //    return new VehicleRcResponse
-        //    {
-        //        RegnNumber = x.RegnNumber,
-        //        StateCode = x.StateCode,
-        //        VehicleType = x.VehicleType,
-        //        IssuedBy = x.IssuedBy,
-        //        RegnDate = x.RegnDate,
-        //        RegnValidity = x.RegnValidity,
-        //        OwnerSerial = x.OwnerSerial,
-        //        ChassisNo = x.ChassisNo,
-        //        EngineNo = x.EngineNo,
-        //        OwnerName = x.OwnerName,
-        //        SonWifeDaughterOf = x.SonWifeDaughterOf,
-        //        Ownership = x.Ownership,
-        //        Address = x.Address,
-        //        Fuel = x.Fuel,
-        //        EmissionNorms = x.EmissionNorms,
-        //        CardIssueDate = x.CardIssueDate,
-        //        MfgMonthYear = x.MfgMonthYear,
-        //        NoOfCylinders = x.NoOfCylinders,
-        //        FormType = x.FormType,
-        //        VehicleClass = x.VehicleClass,
-        //        MakerName = x.MakerName,
-        //        ModelName = x.ModelName,
-        //        Colour = x.Colour,
-        //        BodyType = x.BodyType,
-        //        SeatingCapacity = x.SeatingCapacity,
-        //        UnladenWeight = x.UnladenWeight,
-        //        CubicCapacity = x.CubicCapacity,
-        //        HorsePower = x.HorsePower,
-        //        WheelBase = x.WheelBase,
-        //        Financier = x.Financier,
-        //        RegAuthority = x.RegAuthority,
-        //        QrCodeUrl = x.QrCodeUrl,
-        //        AuthoritySignUrl = x.AuthoritySignUrl
-        //    };
-        //}
     }
 }

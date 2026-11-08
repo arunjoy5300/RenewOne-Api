@@ -2,7 +2,7 @@
 {
     public enum PolicyType
     {
-        OwnDamaged = 1,
+        OwnDamage = 1,
         Comprehensive = 2,
         ThirdParty = 3
     }

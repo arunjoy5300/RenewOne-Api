@@ -18,7 +18,7 @@
 
         public decimal WalletBalance { get; set; }
 
-        public decimal LedgerBalance { get; set; }
+        public decimal ManualWalletBalance { get; set; }
 
         public bool IsActive { get; set; }
     }

@@ -16,6 +16,6 @@ namespace RenewOne.Application.Interfaces.LogicService.AdminEntry.QRManaging
 
         Task<Result<string>> UpdateAsync(UpdateQRMasterRequest request, CancellationToken cancellationToken);
 
-        Task<Result<string>> ChangeStatusAsync(Guid id, bool isActive, CancellationToken cancellationToken);
+        Task<Result<string>> ChangeStatusAsync(Guid id, CancellationToken cancellationToken);
     }
 }

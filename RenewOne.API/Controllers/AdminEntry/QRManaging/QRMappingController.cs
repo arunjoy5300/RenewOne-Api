@@ -58,15 +58,13 @@ namespace RenewOne.API.Controllers.AdminEntry.QRManaging
             return StatusCode(result.StatusCode, result);
         }
 
-        [HttpPatch("{id:guid}/status")]
+        [HttpPut("{id:guid}/status")]
         public async Task<IActionResult> ChangeStatus(
             Guid id,
-            [FromQuery] bool isActive,
             CancellationToken cancellationToken)
         {
             var result = await _logicService.ChangeStatusAsync(
                 id,
-                isActive,
                 cancellationToken);
 
             return StatusCode(result.StatusCode, result);

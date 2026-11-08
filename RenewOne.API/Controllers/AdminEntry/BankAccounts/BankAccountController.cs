@@ -57,12 +57,11 @@ namespace RenewOne.API.Controllers.AdminEntry.BankAccounts
             return StatusCode(result.StatusCode, result);
         }
 
-        [HttpPatch("{id:guid}/status")]
+        [HttpPut("{id:guid}/status")]
         public async Task<IActionResult> ChangeStatus(
-            Guid id,
-            [FromQuery] bool isActive)
+            Guid id)
         {
-            var result = await _logicService.ChangeStatusAsync(id, isActive);
+            var result = await _logicService.ChangeStatusAsync(id);
 
             return StatusCode(result.StatusCode, result);
         }

@@ -470,11 +470,15 @@ namespace RenewOne.Application.LogicService.Enquiry
                 return Result<EnquiryDetailsResponse>.NotFound("Enquiry not found");
             }
 
+            var vehicle = enquiry.VehicleEnquiryDetails?.VehicleDetails;
+
             var response = new EnquiryDetailsResponse
             {
                 Id = enquiry.Id,
                 CustomerName = enquiry.CustomerName,
                 CustomerMobile = enquiry.CustomerNumber,
+                AgencyName = enquiry.Tenant?.AgentName ?? string.Empty,
+                AgencyNumber = enquiry.Tenant?.ContactNumber ?? string.Empty,
                 Status = enquiry.Status,
                 PolicyType = enquiry.VehicleEnquiryDetails?.MIPolicyType,
 
@@ -511,8 +515,10 @@ namespace RenewOne.Application.LogicService.Enquiry
                     .Select(d => new DocumentDto
                     {
                         Id = d.Id,
+                        DocName = d.DocType,
                         DocType = d.DocType,
                         DocSide = d.DocSide,
+                        UploadedAt = d.CreatedAt,
                         Url = d.Url
                     })
                     .ToList(),
@@ -531,45 +537,45 @@ namespace RenewOne.Application.LogicService.Enquiry
                     })
                     .ToList(),
 
-                RcDetails = new RcApiDto
+                RcDetails = vehicle is null ? null : new RcApiDto
                 {
-                    ManufacturerName = enquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturerName,
-                    Model = enquiry.VehicleEnquiryDetails.VehicleDetails.Model,
-                    FuelType = enquiry.VehicleEnquiryDetails.VehicleDetails.FuelType,
-                    CubicCapacity = enquiry.VehicleEnquiryDetails.VehicleDetails.CubicCapacity,
-                    BodyType = enquiry.VehicleEnquiryDetails.VehicleDetails.BodyType,
-                    ChassisNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.ChassisNumber,
-                    EngineNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.EngineNumber,
-                    VehicleNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber,
-                    VehicleClass = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleClass,
-                    VehicleColor = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleColor,
-                    NormsType = enquiry.VehicleEnquiryDetails.VehicleDetails.NormsType,
-                    VehicleCategory = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleCategory,
-                    GrossVehicleWeight = enquiry.VehicleEnquiryDetails.VehicleDetails.GrossVehicleWeight,
-                    UnladenWeight = enquiry.VehicleEnquiryDetails.VehicleDetails.UnladenWeight,
-                    Wheelbase = enquiry.VehicleEnquiryDetails.VehicleDetails.Wheelbase,
-                    SeatCapacity = enquiry.VehicleEnquiryDetails.VehicleDetails.SeatCapacity,
-                    CylinderCount = enquiry.VehicleEnquiryDetails.VehicleDetails.CylinderCount,
-                    IsFinanced = enquiry.VehicleEnquiryDetails.VehicleDetails.IsFinanced,
-                    OwnerName = enquiry.VehicleEnquiryDetails.VehicleDetails.OwnerName,
-                    OwnerFatherName = enquiry.VehicleEnquiryDetails.VehicleDetails.OwnerFatherName,
-                    MobileNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.MobileNumber,
-                    OwnerCount = enquiry.VehicleEnquiryDetails.VehicleDetails.OwnerCount,
-                    RegistrationAuthority = enquiry.VehicleEnquiryDetails.VehicleDetails.RegistrationAuthority,
-                    RegistrationDate = enquiry.VehicleEnquiryDetails.VehicleDetails.RegistrationDate,
-                    RcExpiryDate = enquiry.VehicleEnquiryDetails.VehicleDetails.RcExpiryDate,
-                    ManufacturingMonthYear = enquiry.VehicleEnquiryDetails.VehicleDetails.ManufacturingMonthYear,
-                    VehicleTaxUpto = enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleTaxUpto,
-                    RtoCode = enquiry.VehicleEnquiryDetails.VehicleDetails.RtoCode,
-                    InsuranceCompanyName = enquiry.VehicleEnquiryDetails.VehicleDetails.InsuranceCompanyName,
-                    InsurancePolicyNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.InsurancePolicyNumber,
-                    InsuranceValidUpto = enquiry.VehicleEnquiryDetails.VehicleDetails.InsuranceValidUpto,
-                    FinancerName = enquiry.VehicleEnquiryDetails.VehicleDetails.FinancerName,
-                    PuccNumber = enquiry.VehicleEnquiryDetails.VehicleDetails.PuccNumber,
-                    PuccUpto = enquiry.VehicleEnquiryDetails.VehicleDetails.PuccUpto,
-                    PresentAddress = enquiry.VehicleEnquiryDetails.VehicleDetails.PresentAddress,
-                    PermanentAddress = enquiry.VehicleEnquiryDetails.VehicleDetails.PermanentAddress,
-                    RawApiResponse = enquiry.VehicleEnquiryDetails.VehicleDetails.RawApiResponse
+                    ManufacturerName = vehicle.ManufacturerName,
+                    Model = vehicle.Model,
+                    FuelType = vehicle.FuelType,
+                    CubicCapacity = vehicle.CubicCapacity,
+                    BodyType = vehicle.BodyType,
+                    ChassisNumber = vehicle.ChassisNumber,
+                    EngineNumber = vehicle.EngineNumber,
+                    VehicleNumber = vehicle.VehicleNumber,
+                    VehicleClass = vehicle.VehicleClass,
+                    VehicleColor = vehicle.VehicleColor,
+                    NormsType = vehicle.NormsType,
+                    VehicleCategory = vehicle.VehicleCategory,
+                    GrossVehicleWeight = vehicle.GrossVehicleWeight,
+                    UnladenWeight = vehicle.UnladenWeight,
+                    Wheelbase = vehicle.Wheelbase,
+                    SeatCapacity = vehicle.SeatCapacity,
+                    CylinderCount = vehicle.CylinderCount,
+                    IsFinanced = vehicle.IsFinanced,
+                    OwnerName = vehicle.OwnerName,
+                    OwnerFatherName = vehicle.OwnerFatherName,
+                    MobileNumber = vehicle.MobileNumber,
+                    OwnerCount = vehicle.OwnerCount,
+                    RegistrationAuthority = vehicle.RegistrationAuthority,
+                    RegistrationDate = vehicle.RegistrationDate,
+                    RcExpiryDate = vehicle.RcExpiryDate,
+                    ManufacturingMonthYear = vehicle.ManufacturingMonthYear,
+                    VehicleTaxUpto = vehicle.VehicleTaxUpto,
+                    RtoCode = vehicle.RtoCode,
+                    InsuranceCompanyName = vehicle.InsuranceCompanyName,
+                    InsurancePolicyNumber = vehicle.InsurancePolicyNumber,
+                    InsuranceValidUpto = vehicle.InsuranceValidUpto,
+                    FinancerName = vehicle.FinancerName,
+                    PuccNumber = vehicle.PuccNumber,
+                    PuccUpto = vehicle.PuccUpto,
+                    PresentAddress = vehicle.PresentAddress,
+                    PermanentAddress = vehicle.PermanentAddress,
+                    RawApiResponse = vehicle.RawApiResponse
                 }
             };
 
@@ -830,7 +836,7 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                 var response = new EnquiryLedgerDetails
                 {
-                    LedgerBalance = ledger.AvailableBalance,
+                    ManualWalletBalance = ledger.AvailableBalance,
                     FinalAmount = finalBalance,
                     BalanceAfterCut = ledger.AvailableBalance - finalBalance
                 };
@@ -856,12 +862,18 @@ namespace RenewOne.Application.LogicService.Enquiry
                 .AsNoTracking()
                 .Where(e => e.AssignedEmployeeId == null);
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            // 1. Timezone Fix: Server local time-ന് പകരം UTC ഉപയോഗിക്കുന്നു
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
             DateOnly fromDate;
             DateOnly toDate;
 
-            switch (filter.DateFilter)
+            // 2. Default Date Filter: വാല്യൂ ഇല്ലെങ്കിലോ 0 ആണെങ്കിലോ Today ഡിഫോൾട്ട് ആക്കുന്നു
+            var activeDateFilter = filter.DateFilter.HasValue && filter.DateFilter.Value != 0
+                ? filter.DateFilter.Value
+                : DateFilterType.Today;
+
+            switch (activeDateFilter)
             {
                 case DateFilterType.Today:
                     fromDate = today;
@@ -874,43 +886,32 @@ namespace RenewOne.Application.LogicService.Enquiry
                     break;
 
                 case DateFilterType.ThisWeek:
-                    var daysSinceMonday =
-                        ((int)today.DayOfWeek + 6) % 7;
-
+                    var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
                     fromDate = today.AddDays(-daysSinceMonday);
                     toDate = today;
                     break;
 
                 case DateFilterType.ThisMonth:
-                    fromDate = new DateOnly(
-                        today.Year,
-                        today.Month,
-                        1);
-
+                    fromDate = new DateOnly(today.Year, today.Month, 1);
                     toDate = today;
                     break;
 
                 case DateFilterType.ThisYear:
-                    fromDate = new DateOnly(
-                        today.Year,
-                        1,
-                        1);
-
+                    fromDate = new DateOnly(today.Year, 1, 1);
                     toDate = today;
                     break;
 
                 case DateFilterType.Custom:
-                    if (!filter.FromDate.HasValue ||
-                        !filter.ToDate.HasValue)
+                    if (!filter.FromDate.HasValue || !filter.ToDate.HasValue)
                     {
                         return Result<PagedResponse<CommonQueueResponse>>.Failure(
-                            "FromDate and ToDate are required for custom date range.");
+                            "FromDate and ToDate are required for custom date range.", 400);
                     }
 
                     if (filter.FromDate > filter.ToDate)
                     {
                         return Result<PagedResponse<CommonQueueResponse>>.Failure(
-                            "FromDate cannot be greater than ToDate.");
+                            "FromDate cannot be greater than ToDate.", 400);
                     }
 
                     fromDate = filter.FromDate.Value;
@@ -918,43 +919,37 @@ namespace RenewOne.Application.LogicService.Enquiry
                     break;
 
                 default:
-                    return Result<PagedResponse<CommonQueueResponse>>.Failure(
-                        "Invalid date filter.");
+                    fromDate = today;
+                    toDate = today;
+                    break;
             }
 
-            var from = fromDate.ToDateTime(TimeOnly.MinValue);
-            var toExclusive = toDate
-                .AddDays(1)
-                .ToDateTime(TimeOnly.MinValue);
+            var from = DateTime.SpecifyKind(fromDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+            var toExclusive = DateTime.SpecifyKind(toDate.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
-            query = query.Where(e =>
-                e.CreatedAt >= from &&
-                e.CreatedAt < toExclusive);
+            query = query.Where(e => e.CreatedAt >= from && e.CreatedAt < toExclusive);
 
-            var isPrivilegedUser =
-                role == "SuperAdmin" ||
-                role == "Supervisor";
+            // 3. User Permission Checking
+            var isPrivilegedUser = role == "SuperAdmin" || role == "Supervisor";
 
             if (!isPrivilegedUser)
             {
                 var allocations = _userTaskAllocationRepository
                     .GetQueryable()
                     .AsNoTracking()
-                    .Where(x =>
-                        x.UserId == userId &&
-                        x.CanAssign);
+                    .Where(x => x.UserId == userId && x.CanAssign);
 
                 query = query.Where(e =>
                     allocations.Any(a =>
                         a.InsuranceTypeId == e.InsuranceTypeId &&
                         (
                             a.VehicleTypeId == null ||
-                            a.VehicleTypeId ==
-                                e.VehicleEnquiryDetails!.VehicleTypeId
+                            (e.VehicleEnquiryDetails != null && a.VehicleTypeId == e.VehicleEnquiryDetails.VehicleTypeId)
                         )
                     ));
             }
 
+            // 4. Search Filter
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
                 var search = filter.Search.Trim();
@@ -965,23 +960,19 @@ namespace RenewOne.Application.LogicService.Enquiry
                     (
                         e.VehicleEnquiryDetails != null &&
                         e.VehicleEnquiryDetails.VehicleDetails != null &&
-                        e.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
-                            .Contains(search)
+                        e.VehicleEnquiryDetails.VehicleDetails.VehicleNumber.Contains(search)
                     ));
             }
 
             if (filter.InsuranceTypeId.HasValue)
             {
                 var insuranceTypeId = filter.InsuranceTypeId.Value;
-
-                query = query.Where(e =>
-                    e.InsuranceTypeId == insuranceTypeId);
+                query = query.Where(e => e.InsuranceTypeId == insuranceTypeId);
             }
 
             if (filter.VehicleTypeId.HasValue)
             {
                 var vehicleTypeId = filter.VehicleTypeId.Value;
-
                 query = query.Where(e =>
                     e.VehicleEnquiryDetails != null &&
                     e.VehicleEnquiryDetails.VehicleTypeId == vehicleTypeId);
@@ -989,54 +980,37 @@ namespace RenewOne.Application.LogicService.Enquiry
 
             var totalCount = await query.CountAsync(ct);
 
-            var resultQuery = query
-                .Select(e => new CommonQueueResponse
-                {
-                    Id = e.Id,
-                    EnquiryId = e.EnquiryNumber,
-                    CustomerName = e.CustomerName,
-                    CustomerNumber = e.CustomerNumber,
-                    //VehicleNumber = e.VehicleEnquiryDetails!
-                    //    .VehicleDetails!
-                    //    .VehicleNumber,
-                    //VehicleType = e.VehicleEnquiryDetails!
-                    //    .VehicleType!
-                    //    .TypeName,
-                    InsuranceType = e.InsuranceType!
-                        .Name,
-                    //PolicyType = e.VehicleEnquiryDetails!
-                    //    .MIPolicyType,
-                    Status = e.Status,
-                    CreatedBy = e.CreatedByUser!
-                        .FullName,
-                    CreatedByPhone = e.CreatedByUser!
-                        .PhoneNumber,
-                    CreatedByRole = e.CreatedByUser!
-                        .UserType,
-                    AgencyName = e.Tenant!
-                        .AgentName,
-                    SubmittedOn = e.UpdatedAt,
-                    Priority = e.Priority
-                });
+            // 5. Safe Projection: NullReferenceException ഒഴിവാക്കാനുള്ള നൾ-സേഫ് ചെക്കുകൾ
+            var resultQuery = query.Select(e => new CommonQueueResponse
+            {
+                Id = e.Id,
+                EnquiryId = e.EnquiryNumber,
+                CustomerName = e.CustomerName,
+                CustomerNumber = e.CustomerNumber,
+                InsuranceType = e.InsuranceType != null ? e.InsuranceType.Name : string.Empty,
+                Status = e.Status,
+                CreatedBy = e.CreatedByUser != null ? e.CreatedByUser.FullName : string.Empty,
+                CreatedByPhone = e.CreatedByUser != null ? e.CreatedByUser.PhoneNumber : string.Empty,
+                CreatedByRole = e.CreatedByUser != null ? e.CreatedByUser.UserType : string.Empty,
+                AgencyName = e.Tenant != null ? e.Tenant.AgentName : string.Empty,
+                SubmittedOn = e.CreatedAt, // Creation Time വെച്ച് ഓർഡർ ചെയ്യാൻ CreatedAt നൽകുന്നു
+                Priority = e.Priority
+            });
 
             resultQuery = filter.SortDescending
-                ? resultQuery
-                    .OrderByDescending(x => x.SubmittedOn)
-                    .ThenByDescending(x => x.Id)
-                : resultQuery
-                    .OrderBy(x => x.SubmittedOn)
-                    .ThenBy(x => x.Id);
+                ? resultQuery.OrderByDescending(x => x.SubmittedOn).ThenByDescending(x => x.Id)
+                : resultQuery.OrderBy(x => x.SubmittedOn).ThenBy(x => x.Id);
 
             var pageNumber = Math.Max(1, filter.PageNumber);
             var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
+            // 6. Pagination Syntax Fix
             var result = await resultQuery
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync(ct);
 
-            var totalPages = (int)Math.Ceiling(
-                (double)totalCount / pageSize);
+            var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
 
             var response = new PagedResponse<CommonQueueResponse>
             {
@@ -1052,6 +1026,99 @@ namespace RenewOne.Application.LogicService.Enquiry
                 "Common queue fetched successfully.");
         }
         #endregion
+
+        public async Task<Result<PagedResponse<AdminAssistedEnquiryResponse>>> GetAdminAssistedEnquiriesAsync(PolicyQueueFilter filter, CancellationToken ct)
+        {
+            var query = _enquiryRepository.GetEnquiryQueryable()
+                .AsNoTracking()
+                .Where(enquiry => enquiry.AdminAssisted == true);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var search = filter.Search.Trim();
+                query = query.Where(enquiry =>
+                    enquiry.CustomerName.Contains(search) ||
+                    enquiry.CustomerNumber.Contains(search) ||
+                    (enquiry.EnquiryNumber != null && enquiry.EnquiryNumber.Contains(search)) ||
+                    (enquiry.VehicleEnquiryDetails != null &&
+                     enquiry.VehicleEnquiryDetails.VehicleDetails != null &&
+                     enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber.Contains(search)));
+            }
+
+            if (filter.Status.HasValue)
+            {
+                var status = filter.Status.Value.ToString();
+                query = query.Where(enquiry => enquiry.Status == status);
+            }
+
+            if (filter.InsuranceTypeId.HasValue)
+                query = query.Where(enquiry => enquiry.InsuranceTypeId == filter.InsuranceTypeId.Value);
+
+            if (filter.VehicleTypeId.HasValue)
+                query = query.Where(enquiry => enquiry.VehicleEnquiryDetails != null &&
+                    enquiry.VehicleEnquiryDetails.VehicleTypeId == filter.VehicleTypeId.Value);
+
+            if (filter.AccountId.HasValue)
+                query = query.Where(enquiry => enquiry.TenantId == filter.AccountId.Value);
+
+            if (filter.FromDate.HasValue)
+            {
+                var from = filter.FromDate.Value.ToDateTime(TimeOnly.MinValue);
+                query = query.Where(enquiry => enquiry.CreatedAt >= from);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                var toExclusive = filter.ToDate.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
+                query = query.Where(enquiry => enquiry.CreatedAt < toExclusive);
+            }
+
+            var totalRecords = await query.CountAsync(ct);
+            var pageNumber = Math.Max(1, filter.PageNumber);
+            var pageSize = Math.Clamp(filter.PageSize, 1, 100);
+            var orderedQuery = filter.SortDescending
+                ? query.OrderByDescending(enquiry => enquiry.CreatedAt).ThenByDescending(enquiry => enquiry.Id)
+                : query.OrderBy(enquiry => enquiry.CreatedAt).ThenBy(enquiry => enquiry.Id);
+
+            var items = await orderedQuery
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(enquiry => new AdminAssistedEnquiryResponse
+                {
+                    Id = enquiry.Id,
+                    EnquiryNumber = enquiry.EnquiryNumber ?? string.Empty,
+                    CustomerName = enquiry.CustomerName,
+                    CustomerNumber = enquiry.CustomerNumber,
+                    VehicleNumber = enquiry.VehicleEnquiryDetails != null && enquiry.VehicleEnquiryDetails.VehicleDetails != null
+                        ? enquiry.VehicleEnquiryDetails.VehicleDetails.VehicleNumber
+                        : null,
+                    VehicleType = enquiry.VehicleEnquiryDetails != null && enquiry.VehicleEnquiryDetails.VehicleType != null
+                        ? enquiry.VehicleEnquiryDetails.VehicleType.TypeName
+                        : null,
+                    InsuranceType = enquiry.InsuranceType != null ? enquiry.InsuranceType.Name : null,
+                    PolicyType = enquiry.VehicleEnquiryDetails != null ? enquiry.VehicleEnquiryDetails.MIPolicyType : null,
+                    Status = enquiry.Status,
+                    CurrentStep = enquiry.CurrentStep,
+                    AdminAssisted = enquiry.AdminAssisted == true,
+                    AccountId = enquiry.TenantId,
+                    SelectedQuoteId = enquiry.SelectedQuoteId,
+                    CreatedAt = enquiry.CreatedAt
+                })
+                .ToListAsync(ct);
+
+            var result = new PagedResponse<AdminAssistedEnquiryResponse>
+            {
+                Items = items,
+                TotalRecords = totalRecords,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize)
+            };
+
+            return Result<PagedResponse<AdminAssistedEnquiryResponse>>.Success(
+                result,
+                "Admin-assisted enquiries fetched successfully.");
+        }
 
         #region Admin - Enquiry - All Equiry
         public async Task<Result<PagedResponse<QuoteQueueResponse>>> GetAllAdminEnquiriesAsync(PolicyQueueFilter filter, CancellationToken ct)
@@ -1890,6 +1957,8 @@ namespace RenewOne.Application.LogicService.Enquiry
         }
         #endregion
 
+
+        //remove
         #region Admin - Enquiry - Draft Queue
         public async Task<Result<PagedResponse<QuoteQueueResponse>>> DraftQueue(PolicyQueueFilter filter, CancellationToken ct)
         {
@@ -2320,23 +2389,23 @@ namespace RenewOne.Application.LogicService.Enquiry
                     ReferenceNumber = x.ReferenceNumber,
 
                     // Ledger
-                    AgentLedgerName = x.PaymentMode == "Ledger"
+                    AgentLedgerName = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? x.Account.AgentName
                         : null,
 
-                    AgentTotalLimit = x.PaymentMode == "Ledger"
-                        ? x.Account.Ledger.CreditLimit
-                        : null,
+                    ManualWalletBalance = x.Account.Ledger != null
+                        ? x.Account.Ledger.AvailableBalance
+                        : 0m,
 
-                    CurrentBalance = x.PaymentMode == "Ledger"
+                    CurrentBalance = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? x.Account.Ledger.AvailableBalance
                         : null,
 
-                    TransactionId = x.PaymentMode == "Ledger"
+                    TransactionId = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? null
                         : x.TransactionId,
 
-                    LedgerPaymentTime = x.PaymentMode == "Ledger"
+                    LedgerPaymentTime = x.PaymentMode == "Ledger" || x.PaymentMode == "ManualWallet"
                         ? x.SubmittedAt
                         : null,
 
@@ -2535,10 +2604,6 @@ namespace RenewOne.Application.LogicService.Enquiry
                 policyDetails,
                 ct);
 
-            enquiryExists.Status = EnquiryStatus.PolicyIssued.ToString();
-
-            _enquiryRepository.Update(enquiryExists);
-
             await _unitOfWork.SaveChangesAsync();
 
             var result = new PolicyDetailsDto
@@ -2726,6 +2791,31 @@ namespace RenewOne.Application.LogicService.Enquiry
                                 400);
                         }
 
+                        if (quote.CompanyPayable <= 0m)
+                        {
+                            return Result<bool>.Failure(
+                                "Vendor payment amount must be greater than zero.",
+                                400);
+                        }
+
+                        await _unitOfWork.BeginTransactionAsync();
+                        try
+                        {
+                            var existingPayment = await _vendorTransactionRepository
+                                .GetQueryable()
+                                .AnyAsync(x =>
+                                    x.EnquiryId == request.EnquiryId &&
+                                    x.TransactionType == VendorTransactionType.VendorPayment.ToString(),
+                                    ct);
+
+                            if (existingPayment)
+                            {
+                                await _unitOfWork.RollbackTransactionAsync();
+                                return Result<bool>.Failure(
+                                    "A vendor payment has already been recorded for this enquiry.",
+                                    409);
+                            }
+
                         var bankAccount = await _bankAccountRepository
                             .GetQueryable()
                             .FirstOrDefaultAsync(
@@ -2735,15 +2825,22 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                         if (bankAccount == null)
                         {
+                            await _unitOfWork.RollbackTransactionAsync();
                             return Result<bool>.NotFound(
                                 "Bank account not found.");
                         }
 
+                            if (bankAccount.CurrentBalance < quote.CompanyPayable)
+                            {
+                                await _unitOfWork.RollbackTransactionAsync();
+                                return Result<bool>.Failure(
+                                    "Insufficient bank account balance for this vendor payment.",
+                                    409);
+                            }
+
                         var previousBalance = await GetVendorBalance(
                             request.VendorId,
                             ct);
-
-                        var previousBankBalance = bankAccount.OpeningBalance;
 
                         // Vendor transaction
                         var vendorTransaction = new VendorTransaction
@@ -2802,7 +2899,18 @@ namespace RenewOne.Application.LogicService.Enquiry
 
                         _bankAccountRepository.Update(bankAccount);
 
-                        break;
+                            await _unitOfWork.CommitTransactionAsync();
+                            return Result<bool>.Success(
+                                true,
+                                "Vendor payment recorded successfully.");
+                        }
+                        catch (Exception ex)
+                        {
+                            await _unitOfWork.RollbackTransactionAsync();
+                            _logger.LogError(ex, "Failed to record vendor bank payment for enquiry {EnquiryId}.", request.EnquiryId);
+                            return Result<bool>.Failure("Failed to record vendor payment.", 500);
+                        }
+
                     }
 
                 default:

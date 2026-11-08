@@ -18,7 +18,7 @@
 
         public IReadOnlyList<Guid>? VehicleTypeIds { get; init; }
 
-        public IReadOnlyList<Guid>? CancellationReasonIds { get; init; }
+        public IReadOnlyList<string>? CancellationReasons { get; init; }
 
         public IReadOnlyList<int>? PendingStageIds { get; init; }
 
@@ -46,6 +46,10 @@
         public DateTime? CancellationFromDate { get; init; }
 
         public DateTime? CancellationToDate { get; init; }
+
+        public DateTime? ConvertedFromDate { get; init; }
+
+        public DateTime? ConvertedToDate { get; init; }
 
         public IReadOnlyList<string>? AgeingRanges { get; init; }
 

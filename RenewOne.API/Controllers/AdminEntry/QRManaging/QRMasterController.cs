@@ -85,15 +85,13 @@ namespace RenewOne.API.Controllers.AdminEntry.QRManaging
         /// <summary>
         /// Activate / Deactivate QR Master
         /// </summary>
-        [HttpPatch("{id:guid}/status")]
+        [HttpPut("{id:guid}/status")]
         public async Task<IActionResult> ChangeStatus(
             Guid id,
-            [FromQuery] bool isActive,
             CancellationToken cancellationToken)
         {
             var result = await _logicService.ChangeStatusAsync(
                 id,
-                isActive,
                 cancellationToken);
 
             return StatusCode(result.StatusCode, result);

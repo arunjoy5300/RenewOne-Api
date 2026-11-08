@@ -191,6 +191,17 @@ namespace RenewOne.Application.LogicService.BankAccounts
                         "Bank account not found.");
                 }
 
+                var accountTransactions = _transactionRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Where(x => x.BankAccountId == id);
+                var ledgerCredits = await accountTransactions
+                    .Where(x => x.TransactionType == "Credit")
+                    .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+                var ledgerDebits = await accountTransactions
+                    .Where(x => x.TransactionType == "Debit")
+                    .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+                var ledgerTransactionCount = await accountTransactions.CountAsync();
+
                 var response = new BankAccountResponse
                 {
                     Id = bankAccount.Id,
@@ -203,6 +214,9 @@ namespace RenewOne.Application.LogicService.BankAccounts
                     UpiId = bankAccount.UpiId,
                     OpeningBalance = bankAccount.OpeningBalance,
                     CurrentBalance = bankAccount.CurrentBalance,
+                    LedgerTotalCredited = ledgerCredits,
+                    LedgerTotalDebited = ledgerDebits,
+                    LedgerTransactionCount = ledgerTransactionCount,
                     IsPrimary = bankAccount.IsPrimary,
                     IsActive = bankAccount.IsActive
                 };
@@ -297,43 +311,36 @@ namespace RenewOne.Application.LogicService.BankAccounts
             }
         }
 
-        public async Task<Result<string>> ChangeStatusAsync(Guid id, bool isActive)
+        public async Task<Result<string>> ChangeStatusAsync(Guid id)
         {
             try
             {
-                _logger.LogInformation(
-                    "Changing bank account status. Id: {Id}",
-                    id);
+                _logger.LogInformation("Changing bank account status. Id: {Id}", id);
 
                 var bankAccount = await _bankAccountRepository.GetByIdAsync(id);
 
                 if (bankAccount == null)
                 {
-                    return Result<string>.NotFound(
-                        "Bank account not found.");
+                    return Result<string>.NotFound("Bank account not found.");
                 }
 
-                bankAccount.IsActive = isActive;
+                bankAccount.IsActive = !bankAccount.IsActive;
                 bankAccount.UpdatedAt = DateTime.UtcNow;
 
                 _bankAccountRepository.Update(bankAccount);
-
                 await _unitOfWork.SaveChangesAsync();
 
-                _logger.LogInformation(
-                    "Bank account status updated successfully. Id: {Id}",
-                    id);
+                _logger.LogInformation("Bank account status updated successfully. Id: {Id}", id);
+
+                string statusMessage = bankAccount.IsActive ? "activated" : "deactivated";
 
                 return Result<string>.Success(
                     id.ToString(),
-                    $"Bank account {(isActive ? "activated" : "deactivated")} successfully.");
+                    $"Bank account {statusMessage} successfully.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(
-                    ex,
-                    "Error changing bank account status. Id: {Id}",
-                    id);
+                _logger.LogError(ex, "Error changing bank account status. Id: {Id}", id);
 
                 return Result<string>.Failure(
                     "An error occurred while updating bank account status.",
@@ -408,14 +415,14 @@ namespace RenewOne.Application.LogicService.BankAccounts
             // 8. Date Range Filter
             if (filter.FromDate.HasValue)
             {
-                var from = DateTime.SpecifyKind(filter.FromDate.Value.Date, DateTimeKind.Utc);
+                var from = IndiaStartOfDayUtc(filter.FromDate.Value);
                 query = query.Where(x => x.TransactionDate >= from);
             }
 
             if (filter.ToDate.HasValue)
             {
-                var to = DateTime.SpecifyKind(filter.ToDate.Value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
-                query = query.Where(x => x.TransactionDate <= to);
+                var toExclusive = IndiaStartOfDayUtc(filter.ToDate.Value.Date.AddDays(1));
+                query = query.Where(x => x.TransactionDate < toExclusive);
             }
 
             // 9. Sorting
@@ -488,6 +495,15 @@ namespace RenewOne.Application.LogicService.BankAccounts
             };
 
             return Result<BankTransactionResponse>.Success(response, "Bank transactions fetched successfully.");
+        }
+
+        // The transaction screen uses India-local calendar dates. Store/query timestamps remain UTC.
+        private static DateTime IndiaStartOfDayUtc(DateTime date)
+        {
+            var indiaMidnight = new DateTimeOffset(
+                DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified),
+                TimeSpan.FromHours(5.5));
+            return indiaMidnight.UtcDateTime;
         }
     }
 }

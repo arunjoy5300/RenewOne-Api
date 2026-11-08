@@ -238,21 +238,21 @@ namespace RenewOne.Persistence
                 {
                     Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440000"),
                     ClassName = "Premium",
-                    CommSharePercentage = 15,
+                    CommSharePercentage = 5,
                     CreatedAt = seedDate
                 },
                 new AgentClass
                 {
                     Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440001"),
                     ClassName = "Standard",
-                    CommSharePercentage = 10,
+                    CommSharePercentage = 15,
                     CreatedAt = seedDate
                 },
                 new AgentClass
                 {
                     Id = Guid.Parse("550e8400-e29b-41d4-a716-446655440002"),
                     ClassName = "Basic",
-                    CommSharePercentage = 5,
+                    CommSharePercentage = 15,
                     CreatedAt = seedDate
                 }
             );
@@ -260,6 +260,17 @@ namespace RenewOne.Persistence
 
             modelBuilder.Entity<Enquiry>()
                 .HasIndex(e => new { e.AssignedEmployeeId, e.CreatedAt });
+
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.Property(x => x.EmpId)
+                    .IsRequired(false);
+
+                entity.HasIndex(x => x.EmpId)
+                    .IsUnique()
+                    .HasFilter("[EmpId] IS NOT NULL");
+            });
+
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using RenewOne.Application.Common.Models;
 using RenewOne.Application.DTOs.Request.Wallet;
+using RenewOne.Domain.Enums;
 using RenewOne.Application.Interfaces.Common;
 using RenewOne.Application.Interfaces.LogicService.Ledger;
 using RenewOne.Application.Interfaces.Repositories.Accounts;
@@ -29,16 +30,18 @@ namespace RenewOne.Application.LogicService.Ledgers
             _ledgerTransactionRepository = ledgerTransactionRepository;
             _currentUser = currentUser;
         }
-        public async Task<Result<bool>> AddLedgerAsync(WalletRechargeRequest request, Guid accountId)
+        public async Task<Result<bool>> AdjustManualWalletAsync(WalletAdjustmentRequest request)
         {
+            if (request.Amount <= 0)
+                return Result<bool>.Failure("Enter a positive adjustment amount.", 400);
+            if (string.IsNullOrWhiteSpace(request.Remarks))
+                return Result<bool>.Failure("A reason is required for manual wallet adjustments.", 400);
+            if (!Enum.IsDefined(request.TransactionType))
+                return Result<bool>.Failure("Adjustment type must be Credit or Debit.", 400);
+            var transactionStarted = false;
             try
             {
-                await _unitOfWork.BeginTransactionAsync();
-
-                if (request.Amount <= 0)
-                {
-                    return Result<bool>.Failure("Please enter valid amount", 400);
-                }
+                var accountId = request.AccountId;
                 var account = await _accountRepository.GetByIdAsync(accountId);
                 if (account == null)
                 {
@@ -48,20 +51,25 @@ namespace RenewOne.Application.LogicService.Ledgers
                 var ledger = await _ledgerRepository.GetByAccountIdAsync(accountId);
                 if (ledger == null)
                 {
-                    return Result<bool>.NotFound("No ledger account found");
+                    return Result<bool>.NotFound("Manual wallet not found");
                 }
 
                 var balanceBefore = ledger.AvailableBalance;
+                if (request.TransactionType == WalletTransactionType.Debit && balanceBefore < request.Amount)
+                    return Result<bool>.Failure("Insufficient manual wallet balance.", 400);
 
-                ledger.CreditLimit += request.Amount;
-                ledger.AvailableBalance += request.Amount;
+                await _unitOfWork.BeginTransactionAsync();
+                transactionStarted = true;
+                ledger.AvailableBalance += request.TransactionType == WalletTransactionType.Credit
+                    ? request.Amount
+                    : -request.Amount;
                 ledger.UpdatedAt = DateTime.UtcNow;
 
                 var ledgerTransaction = new LedgerTransaction
                 {
                     Id = Guid.NewGuid(),
                     LedgerId = ledger.Id,
-                    TransactionType = "Credit",
+                    TransactionType = request.TransactionType.ToString(),
                     Amount = request.Amount,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = ledger.AvailableBalance,
@@ -75,13 +83,16 @@ namespace RenewOne.Application.LogicService.Ledgers
                 await _ledgerTransactionRepository.AddLedgerTransaction(ledgerTransaction);
                 await _unitOfWork.CommitTransactionAsync();
 
-                return Result<bool>.Success(true, "Amount added successfully");
+                return Result<bool>.Success(true, request.TransactionType == WalletTransactionType.Credit
+                    ? "Manual wallet credited successfully."
+                    : "Manual wallet debited successfully.");
 
             }
-            catch (Exception ex)
+            catch
             {
-                await _unitOfWork.RollbackTransactionAsync();
-                return Result<bool>.Failure($"Error adding ledger balance: {ex}", 500);
+                if (transactionStarted)
+                    await _unitOfWork.RollbackTransactionAsync();
+                return Result<bool>.Failure("Unable to adjust the manual wallet.", 500);
             }
         }
     }

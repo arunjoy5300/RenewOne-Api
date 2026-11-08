@@ -5,6 +5,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Ledger
 {
     public interface ILedgerLogicService
     {
-        Task<Result<bool>> AddLedgerAsync(WalletRechargeRequest request, Guid accountId);
+        Task<Result<bool>> AdjustManualWalletAsync(WalletAdjustmentRequest request);
     }
 }

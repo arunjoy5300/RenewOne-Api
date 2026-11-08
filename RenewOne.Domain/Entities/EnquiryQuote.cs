@@ -1,4 +1,4 @@
-﻿using RenewOne.Domain.Common;
+using RenewOne.Domain.Common;
 
 namespace RenewOne.Domain.Entities
 {
@@ -6,10 +6,14 @@ namespace RenewOne.Domain.Entities
     {
         public Guid EnquiryId { get; set;  }
         public Guid InsuranceCompanyId { get; set; }
+        public Guid? VendorId { get; set; }
         public decimal Premium { get; set; }
         public decimal CompanyPayable { get; set; }
         public decimal AgentPoints { get; set; }
         public decimal AdminProfit { get; set; }
+        public bool AgentClassCommissionApplied { get; set; }
+        public decimal AgentClassCommissionPercentage { get; set; }
+        public decimal AgentClassCommissionDeduction { get; set; }
         public decimal? Idv { get; set; }
         public bool IsManualQuote { get; set; }
         public string? Remarks { get; set; }
@@ -18,6 +22,7 @@ namespace RenewOne.Domain.Entities
         public DateTime? SelectedAt { get; set; }
         public virtual Enquiry? Enquiry { get; set; }
         public virtual InsuranceCompany? InsuranceCompany { get; set; }
+        public virtual Vendor? Vendor { get; set; }
         public virtual ICollection<PolicyPayment> PolicyPayments { get; set; }
     = new HashSet<PolicyPayment>();
         public virtual User? User { get; set; } 

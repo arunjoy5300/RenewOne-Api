@@ -8,5 +8,6 @@ namespace RenewOne.Application.Interfaces.LogicService.Auth
     {
         Task<Result<LoginResponse>> LoginAsync(LoginRequest request);
         Task<Result<GeneratedPasswordResetResponse>> ResetAgentPasswordWithGeneratedAsync(Guid accountId, CancellationToken cancellationToken = default);
+        Task<Result<GeneratedPasswordResetResponse>> ResetStaffPasswordWithGeneratedAsync(Guid accountId, Guid staffUserId, CancellationToken cancellationToken = default);
     }
 }
